@@ -1,9 +1,11 @@
+name: deploy
 on:
   workflow_dispatch:
 jobs:
   build:
-    #省略
-
+    runs-on: windows-latest
+    steps:
+      - run: echo test
   deploy:
     runs-on: windows-latest
     needs: build
