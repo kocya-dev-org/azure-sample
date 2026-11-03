@@ -48,6 +48,7 @@
         font-weight: 700;
         cursor: pointer;
       }
+      .button-row { display: flex; flex-wrap: wrap; gap: 12px; }
       button:hover { background: #a2f2df; }
       button:focus-visible { outline: 3px solid white; outline-offset: 3px; }
       #result { min-height: 1.7em; margin-bottom: 0; color: #edf3fb; }
@@ -62,30 +63,41 @@
 
       <section class="card" aria-labelledby="api-title">
         <h2 id="api-title">Functions API 接続確認</h2>
-        <p>ボタンを押すと <code>/api/hello</code> を呼び出します。</p>
-        <button id="check-api" type="button">API を呼び出す</button>
+        <p>ボタンを押すと Functions API を呼び出します。</p>
+        <div class="button-row">
+          <button id="check-api" type="button">API を呼び出す</button>
+          <button id="check-goodbye" type="button">goodbye</button>
+        </div>
         <p id="result" role="status" aria-live="polite">まだ呼び出していません。</p>
       </section>
       <footer>静的ページと API は GitHub Actions からデプロイします。</footer>
     </main>
     <script>
-      const button = document.querySelector('#check-api');
+      const helloButton = document.querySelector('#check-api');
+      const goodbyeButton = document.querySelector('#check-goodbye');
       const result = document.querySelector('#result');
 
-      button.addEventListener('click', async () => {
-        button.disabled = true;
+      async function callApi(path) {
+        helloButton.disabled = true;
+        goodbyeButton.disabled = true;
         result.textContent = '接続中…';
         try {
-          const response = await fetch('/api/hello');
+          const response = await fetch(path, { method: 'GET' });
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const body = await response.json();
-          result.textContent = body.message;
+          result.textContent = path === '/api/goodbye'
+            ? `Functions API (${path})から応答しています: ${body.message}`
+            : body.message;
         } catch (error) {
           result.textContent = `API に接続できませんでした: ${error.message}`;
         } finally {
-          button.disabled = false;
+          helloButton.disabled = false;
+          goodbyeButton.disabled = false;
         }
-      });
+      }
+
+      helloButton.addEventListener('click', () => callApi('/api/hello'));
+      goodbyeButton.addEventListener('click', () => callApi('/api/goodbye'));
     </script>
   </body>
 </html>
