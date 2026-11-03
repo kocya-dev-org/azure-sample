@@ -20,7 +20,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: read
     outputs:
       src: ${{ steps.filter.outputs.src }}
       infra: ${{ steps.filter.outputs.infra }}
@@ -34,9 +33,10 @@ jobs:
         uses: dorny/paths-filter@v4
         id: filter
         with:
-          # On pushes to main, compare this push with the previous main commit.
-          # For pull requests, paths-filter compares against the PR base branch.
-          base: ${{ github.ref }}
+          # Use exact commit SHAs for deterministic PR and push change detection.
+          base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before || github.ref }}
+          # Use git diff so the explicit base SHA is honored for pull requests.
+          token: ''
           filters: |
             src:
               - 'src/**'
@@ -100,10 +100,13 @@ jobs:
     name: Deploy frontend and Functions
     needs:
       - changes
+      - validate-infra
       - deploy-infrastructure
     if: >-
       always() &&
       needs.changes.result == 'success' &&
+      needs.validate-infra.result != 'failure' &&
+      needs.validate-infra.result != 'cancelled' &&
       (
         (github.event_name == 'pull_request' && github.event.action != 'closed' && needs.changes.outputs.src == 'true') ||
         (github.event_name == 'push' && needs.changes.outputs.src == 'true' && (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')) ||
@@ -141,6 +144,7 @@ jobs:
           action: upload
           app_location: /src/frontend
           api_location: /src/api
+          api_build_command: npm run build
           output_location: ''
           skip_app_build: true
           production_branch: main
