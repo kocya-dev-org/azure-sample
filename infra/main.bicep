@@ -29,5 +29,39 @@ resource staticWebApp 'Microsoft.Web/staticSites@2025-03-01' = {
   }
 }
 
+@description('Application Insights のログを保存する Log Analytics ワークスペース。')
+resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: 'law-${staticWebAppName}'
+  location: location
+  tags: tags
+  properties: {
+    retentionInDays: 30
+    sku: {
+      name: 'PerGB2018'
+    }
+  }
+}
+
+@description('Static Web Apps の API を監視する Application Insights。')
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: 'appi-${staticWebAppName}'
+  location: location
+  kind: 'web'
+  tags: tags
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logAnalyticsWorkspace.id
+  }
+}
+
+@description('Static Web Apps の API に Application Insights の接続文字列を設定します。')
+resource staticWebAppSettings 'Microsoft.Web/staticSites/config@2025-03-01' = {
+  parent: staticWebApp
+  name: 'appsettings'
+  properties: {
+    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
+  }
+}
+
 output staticWebAppName string = staticWebApp.name
 output staticWebAppHostname string = staticWebApp.properties.defaultHostname
