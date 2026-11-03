@@ -1,25 +1,172 @@
-name: deploy
+name: Deploy Flyingfish
+
 on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - closed
+    branches:
+      - main
   workflow_dispatch:
+
 jobs:
-  build:
-    runs-on: windows-latest
+  changes:
+    name: Detect changed paths
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      src: ${{ steps.filter.outputs.src }}
+      infra: ${{ steps.filter.outputs.infra }}
     steps:
-      - run: echo test
-  deploy:
-    runs-on: windows-latest
-    needs: build
-    # 権限の付与の追加
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Filter changed paths
+        uses: dorny/paths-filter@v4
+        id: filter
+        with:
+          # On pushes to main, compare this push with the previous main commit.
+          # For pull requests, paths-filter compares against the PR base branch.
+          base: ${{ github.ref }}
+          filters: |
+            src:
+              - 'src/**'
+            infra:
+              - 'infra/**'
+
+  validate-infra:
+    name: Validate Bicep
+    needs: changes
+    if: >-
+      github.event.action != 'closed' &&
+      (needs.changes.outputs.infra == 'true' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Lint and build Bicep
+        run: |
+          az bicep lint --file infra/main.bicep
+          az bicep build --file infra/main.bicep
+          az bicep build-params --file infra/environments/dev.bicepparam
+
+  deploy-infrastructure:
+    name: Deploy Azure infrastructure
+    needs:
+      - changes
+      - validate-infra
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.infra == 'true') ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
+    env:
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
     steps:
-      # ログイン処理の追加
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Existing repository OIDC credentials are used here.
       - name: Azure Login
         uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: test command
-        run: az group list --output table
+
+      - name: Deploy Bicep
+        run: |
+          az deployment group create \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name flyingfish-dev \
+            --parameters infra/environments/dev.bicepparam \
+            --output none
+
+  deploy-static-web-app:
+    name: Deploy frontend and Functions
+    needs:
+      - changes
+      - deploy-infrastructure
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      (
+        (github.event_name == 'pull_request' && github.event.action != 'closed' && needs.changes.outputs.src == 'true') ||
+        (github.event_name == 'push' && needs.changes.outputs.src == 'true' && (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')) ||
+        (github.event_name == 'workflow_dispatch' && needs.deploy-infrastructure.result == 'success')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    concurrency:
+      group: swa-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check Static Web Apps deployment token
+        id: swa-token
+        env:
+          SWA_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+        run: |
+          if [ -n "$SWA_DEPLOYMENT_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Set AZURE_STATIC_WEB_APPS_API_TOKEN after the Static Web App has been provisioned."
+          fi
+
+      - name: Deploy Static Web Apps app and API
+        if: steps.swa-token.outputs.configured == 'true'
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          app_location: /src/frontend
+          api_location: /src/api
+          output_location: ''
+          skip_app_build: true
+          production_branch: main
+
+  close-static-web-app-preview:
+    name: Close Static Web Apps preview
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check Static Web Apps deployment token
+        id: swa-token
+        env:
+          SWA_DEPLOYMENT_TOKEN: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+        run: |
+          if [ -n "$SWA_DEPLOYMENT_TOKEN" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::Set AZURE_STATIC_WEB_APPS_API_TOKEN to close the preview environment."
+          fi
+
+      - name: Close preview environment
+        if: steps.swa-token.outputs.configured == 'true'
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: close
