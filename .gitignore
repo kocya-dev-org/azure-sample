@@ -1,0 +1,4 @@
+infra/main.json
+infra/environments/*.json
+src/api/dist/
+src/api/node_modules/
