@@ -96,8 +96,29 @@ jobs:
             --parameters infra/environments/dev.bicepparam \
             --output none
 
-  deploy-static-web-app:
-    name: Deploy frontend and Functions
+          STATIC_WEB_APP_NAME=$(az deployment group show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name flyingfish-dev \
+            --query properties.outputs.staticWebAppName.value \
+            --output tsv)
+          FUNCTION_APP_NAME=$(az deployment group show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name flyingfish-dev \
+            --query properties.outputs.functionAppName.value \
+            --output tsv)
+          FUNCTION_APP_ID=$(az functionapp show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$FUNCTION_APP_NAME" \
+            --query id \
+            --output tsv)
+          az staticwebapp backends link \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name "$STATIC_WEB_APP_NAME" \
+            --backend-resource-id "$FUNCTION_APP_ID" \
+            --backend-region eastasia
+
+  deploy-functions:
+    name: Deploy Azure Functions
     needs:
       - changes
       - validate-infra
@@ -108,9 +129,68 @@ jobs:
       needs.validate-infra.result != 'failure' &&
       needs.validate-infra.result != 'cancelled' &&
       (
-        (github.event_name == 'pull_request' && github.event.action != 'closed' && needs.changes.outputs.src == 'true') ||
-        (github.event_name == 'push' && needs.changes.outputs.src == 'true' && (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')) ||
+        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.src == 'true' && (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')) ||
         (github.event_name == 'workflow_dispatch' && needs.deploy-infrastructure.result == 'success')
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build and deploy Functions
+        working-directory: src/api
+        run: |
+          FUNCTION_APP_NAME=$(az deployment group show \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --name flyingfish-dev \
+            --query properties.outputs.functionAppName.value \
+            --output tsv)
+          npm ci
+          npm run build
+          npm prune --omit=dev
+          echo "FUNCTION_APP_NAME=$FUNCTION_APP_NAME" >> "$GITHUB_ENV"
+
+      - name: Publish Function App
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.FUNCTION_APP_NAME }}
+          package: src/api
+
+  deploy-static-web-app:
+    name: Deploy frontend
+    needs:
+      - changes
+      - validate-infra
+      - deploy-infrastructure
+      - deploy-functions
+    if: >-
+      always() &&
+      needs.changes.result == 'success' &&
+      needs.validate-infra.result != 'failure' &&
+      needs.validate-infra.result != 'cancelled' &&
+      needs.deploy-functions.result != 'failure' &&
+      needs.deploy-functions.result != 'cancelled' &&
+      (
+        (github.event_name == 'pull_request' && github.event.action != 'closed' && needs.changes.outputs.src == 'true') ||
+        (github.event_name == 'push' && needs.changes.outputs.src == 'true' && needs.deploy-functions.result == 'success' && (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')) ||
+        (github.event_name == 'workflow_dispatch' && needs.deploy-infrastructure.result == 'success' && needs.deploy-functions.result == 'success')
       )
     runs-on: ubuntu-latest
     permissions:
@@ -143,8 +223,7 @@ jobs:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           action: upload
           app_location: /src/frontend
-          api_location: /src/api
-          api_build_command: npm run build
+          api_location: ''
           output_location: ''
           skip_app_build: true
           production_branch: main

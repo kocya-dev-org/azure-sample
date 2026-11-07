@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#101827">
-    <meta name="description" content="Azure Static Web Apps と Functions のサンプルアプリです。">
+    <meta name="description" content="Azure Static Web Apps、Functions、Cosmos DB、Blob Storage のサンプルです。">
     <title>Flyingfish | Azure サンプル</title>
     <style>
       :root {
@@ -18,74 +18,197 @@
       body {
         min-height: 100vh;
         margin: 0;
-        display: grid;
-        place-items: center;
         padding: 32px 20px;
         background: radial-gradient(ellipse at 18% 12%, #183c52 0, transparent 38%), #101827;
       }
-      main { width: min(100%, 760px); }
+      main { width: min(100%, 920px); margin: 0 auto; }
       .eyebrow { color: #7ee4cc; font-size: .78rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
       h1 { margin: 14px 0 12px; font-size: clamp(2.2rem, 7vw, 4.3rem); line-height: 1.05; letter-spacing: -.045em; }
-      .intro { max-width: 560px; color: #aebdd0; font-size: 1.05rem; line-height: 1.8; }
+      .intro { max-width: 650px; color: #aebdd0; font-size: 1.05rem; line-height: 1.8; }
       .card {
-        margin-top: 36px;
-        padding: clamp(22px, 5vw, 34px);
+        margin-top: 24px;
+        padding: clamp(20px, 4vw, 30px);
         border: 1px solid #33445a;
-        border-radius: 20px;
+        border-radius: 18px;
         background: rgb(24 36 53 / 88%);
-        box-shadow: 0 24px 70px rgb(0 0 0 / 22%);
+        box-shadow: 0 24px 70px rgb(0 0 0 / 18%);
       }
       .card h2 { margin: 0 0 8px; font-size: 1.2rem; }
-      .card p { color: #aebdd0; line-height: 1.7; }
+      .card p, .hint { color: #aebdd0; line-height: 1.65; }
+      .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      label { display: grid; gap: 7px; color: #d9e4f1; font-size: .9rem; font-weight: 600; }
+      .full { grid-column: 1 / -1; }
+      input, textarea {
+        width: 100%;
+        border: 1px solid #52657d;
+        border-radius: 9px;
+        padding: 10px 12px;
+        background: #111b29;
+        color: #edf3fb;
+        font: 400 .95rem/1.5 "Cascadia Code", Consolas, monospace;
+      }
+      textarea { min-height: 118px; resize: vertical; }
+      input:focus-visible, textarea:focus-visible, button:focus-visible { outline: 3px solid #7ee4cc; outline-offset: 2px; }
+      .button-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
       button {
-        margin-top: 8px;
         border: 0;
-        border-radius: 10px;
-        padding: 12px 18px;
+        border-radius: 9px;
+        padding: 10px 15px;
         background: #7ee4cc;
         color: #102631;
         font: inherit;
         font-weight: 700;
         cursor: pointer;
       }
-      button:hover { background: #a2f2df; }
-      button:focus-visible { outline: 3px solid white; outline-offset: 3px; }
-      #result { min-height: 1.7em; margin-bottom: 0; color: #edf3fb; }
-      footer { margin-top: 22px; color: #8292a8; font-size: .85rem; }
+      button.secondary { border: 1px solid #52657d; background: #26364b; color: #edf3fb; }
+      button:hover { filter: brightness(1.09); }
+      button:disabled { opacity: .55; cursor: wait; }
+      pre { min-height: 44px; margin: 14px 0 0; padding: 12px; overflow: auto; border-radius: 9px; background: #111b29; color: #d6f7ee; white-space: pre-wrap; overflow-wrap: anywhere; }
+      #status { min-height: 1.5em; color: #edf3fb; }
+      footer { margin-top: 24px; color: #8292a8; font-size: .85rem; }
+      @media (max-width: 620px) { .grid { grid-template-columns: 1fr; } .full { grid-column: auto; } }
     </style>
   </head>
   <body>
     <main>
       <p class="eyebrow">Azure · Static Web Apps</p>
       <h1>Flyingfish</h1>
-      <p class="intro">Bicep で構築した Azure Static Web Apps と、HTTP API 用 Azure Functions のサンプルです。</p>
+      <p class="intro">Bicep で構築した Azure Functions、Cosmos DB、非公開 Blob Storage の読み書きサンプルです。</p>
 
-      <section class="card" aria-labelledby="api-title">
-        <h2 id="api-title">Functions API 接続確認</h2>
-        <p>ボタンを押すと <code>/api/hello</code> を呼び出します。</p>
-        <button id="check-api" type="button">API を呼び出す</button>
-        <p id="result" role="status" aria-live="polite">まだ呼び出していません。</p>
+      <section class="card" aria-labelledby="job-title">
+        <h2 id="job-title">定期実行 Function</h2>
+        <p>Functions の Timer Trigger は 5 分ごとに実行されます。手動実行するとログに <code>Manual</code> が記録されます。</p>
+        <button id="run-job" type="button">今すぐ実行</button>
       </section>
-      <footer>静的ページと API は GitHub Actions からデプロイします。</footer>
+
+      <section class="card" aria-labelledby="cosmos-title">
+        <h2 id="cosmos-title">Cosmos DB レコード</h2>
+        <p>レコードは JSON で指定します。<code>id</code> は必須で、Cosmos DB のパーティションキーにも使われます。</p>
+        <div class="grid">
+          <label>検索・削除する id
+            <input id="record-id" value="example-1" autocomplete="off">
+          </label>
+          <label class="full">レコード JSON
+            <textarea id="record-json" spellcheck="false">{
+  "id": "example-1",
+  "name": "サンプル",
+  "value": "編集できます"
+}</textarea>
+          </label>
+        </div>
+        <div class="button-row">
+          <button data-record-action="POST">POST 作成</button>
+          <button data-record-action="GET" class="secondary">GET 一覧</button>
+          <button id="get-record" class="secondary">GET id</button>
+          <button data-record-action="PUT" class="secondary">PUT 更新</button>
+          <button id="delete-record" class="secondary">DELETE</button>
+        </div>
+        <pre id="record-result" aria-live="polite">結果はここに表示されます。</pre>
+      </section>
+
+      <section class="card" aria-labelledby="blob-title">
+        <h2 id="blob-title">Blob オブジェクト</h2>
+        <p>オブジェクト名とテキスト内容を指定して作成、取得、更新、削除できます。</p>
+        <div class="grid">
+          <label>オブジェクト名
+            <input id="blob-name" value="sample.txt" autocomplete="off">
+          </label>
+          <label class="full">内容
+            <textarea id="blob-content">Flyingfish Blob sample</textarea>
+          </label>
+        </div>
+        <div class="button-row">
+          <button data-blob-action="POST">POST 作成</button>
+          <button id="get-blob" class="secondary">GET 取得</button>
+          <button data-blob-action="PUT" class="secondary">PUT 更新</button>
+          <button id="delete-blob" class="secondary">DELETE</button>
+        </div>
+        <pre id="blob-result" aria-live="polite">結果はここに表示されます。</pre>
+      </section>
+
+      <p id="status" role="status" aria-live="polite"></p>
+      <footer>静的ページと Functions API は GitHub Actions からデプロイします。</footer>
     </main>
     <script>
-      const button = document.querySelector('#check-api');
-      const result = document.querySelector('#result');
+      const status = document.querySelector('#status');
+      const recordResult = document.querySelector('#record-result');
+      const blobResult = document.querySelector('#blob-result');
+      const buttons = [...document.querySelectorAll('button')];
 
-      button.addEventListener('click', async () => {
-        button.disabled = true;
-        result.textContent = '接続中…';
+      async function request(path, method = 'GET', body) {
+        const response = await fetch(path, {
+          method,
+          headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+        const text = response.status === 204 ? '' : await response.text();
+        let value = text;
+        try { value = text ? JSON.parse(text) : '完了しました。'; } catch { /* keep plain text */ }
+        if (!response.ok) throw new Error(typeof value === 'object' ? value.error || JSON.stringify(value) : value || `HTTP ${response.status}`);
+        return value;
+      }
+
+      async function run(action) {
+        buttons.forEach((button) => { button.disabled = true; });
+        status.textContent = '処理中…';
         try {
-          const response = await fetch('/api/hello');
-          if (!response.ok) throw new Error(`HTTP ${response.status}`);
-          const body = await response.json();
-          result.textContent = body.message;
+          const result = await action();
+          status.textContent = '完了しました。';
+          return result;
         } catch (error) {
-          result.textContent = `API に接続できませんでした: ${error.message}`;
+          status.textContent = `エラー: ${error.message}`;
+          throw error;
         } finally {
-          button.disabled = false;
+          buttons.forEach((button) => { button.disabled = false; });
         }
-      });
+      }
+
+      function show(target, action) {
+        return run(async () => {
+          try {
+            const value = await action();
+            target.textContent = JSON.stringify(value, null, 2);
+            return value;
+          } catch (error) {
+            target.textContent = error.message;
+            throw error;
+          }
+        }).catch(() => {});
+      }
+
+      document.querySelector('#run-job').addEventListener('click', () => show(recordResult, () => request('/api/jobs/run', 'POST')));
+
+      document.querySelectorAll('[data-record-action]').forEach((button) => button.addEventListener('click', () => {
+        const method = button.dataset.recordAction;
+        show(recordResult, async () => {
+          if (method === 'GET') return request('/api/items');
+          const record = JSON.parse(document.querySelector('#record-json').value);
+          if (method === 'POST') return request('/api/items', method, record);
+          return request(`/api/items/${encodeURIComponent(record.id)}`, method, record);
+        });
+      }));
+      document.querySelector('#get-record').addEventListener('click', () => show(recordResult, () => {
+        const id = document.querySelector('#record-id').value.trim();
+        return request(`/api/items/${encodeURIComponent(id)}`);
+      }));
+      document.querySelector('#delete-record').addEventListener('click', () => show(recordResult, () => {
+        const id = document.querySelector('#record-id').value.trim();
+        return request(`/api/items/${encodeURIComponent(id)}`, 'DELETE');
+      }));
+
+      document.querySelectorAll('[data-blob-action]').forEach((button) => button.addEventListener('click', () => {
+        const method = button.dataset.blobAction;
+        show(blobResult, () => request(`/api/blobs/${encodeURIComponent(document.querySelector('#blob-name').value.trim())}`, method, {
+          content: document.querySelector('#blob-content').value,
+        }));
+      }));
+      document.querySelector('#get-blob').addEventListener('click', () => show(blobResult, async () => {
+        const value = await request(`/api/blobs/${encodeURIComponent(document.querySelector('#blob-name').value.trim())}`);
+        document.querySelector('#blob-content').value = value.content;
+        return value;
+      }));
+      document.querySelector('#delete-blob').addEventListener('click', () => show(blobResult, () =>
+        request(`/api/blobs/${encodeURIComponent(document.querySelector('#blob-name').value.trim())}`, 'DELETE')));
     </script>
   </body>
 </html>
