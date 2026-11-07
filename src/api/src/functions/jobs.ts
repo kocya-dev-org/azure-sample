@@ -1,6 +1,6 @@
 import { app, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 
-function runJob(invocationPath: 'sceduled' | 'Manual', context: InvocationContext): void {
+function runJob(invocationPath: 'scheduled' | 'Manual', context: InvocationContext): void {
   context.info(invocationPath);
 }
 
@@ -8,7 +8,7 @@ app.timer('scheduledJob', {
   schedule: '0 */5 * * * *',
   runOnStartup: false,
   handler: async (_timer, context: InvocationContext): Promise<void> => {
-    runJob('sceduled', context);
+    runJob('scheduled', context);
   },
 });
 
