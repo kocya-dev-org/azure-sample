@@ -1,7 +1,7 @@
 targetScope = 'resourceGroup'
 
 @description('Static Web Apps を配置する Azure リージョン。')
-param location string = 'eastasia'
+param location string = 'eastus'
 
 @description('Static Web Apps のグローバルに一意なリソース名。')
 @minLength(2)
