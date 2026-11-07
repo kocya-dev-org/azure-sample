@@ -1,6 +1,6 @@
 using '../main.bicep'
 
-param location = 'eastasia'
+param location = 'eastus'
 param tags = {
   managedBy: 'bicep'
   application: 'flyingfish'
