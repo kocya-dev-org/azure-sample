@@ -9,14 +9,11 @@ app.http('goodbye', {
       message: 'goodbye',
     };
 
-    context.info('Goodbye API invocation context:', {
+    context.info('Goodbye API invocation:', {
       invocationId: context.invocationId,
       functionName: context.functionName,
-      triggerMetadata: context.triggerMetadata,
-      request: {
-        method: request.method,
-        url: request.url,
-      },
+      method: request.method,
+      url: request.url.split('?')[0],
     });
     context.info('Goodbye API response:', response);
 
