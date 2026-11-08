@@ -5,7 +5,7 @@ function runJob(invocationPath: 'scheduled' | 'Manual', context: InvocationConte
 }
 
 app.timer('scheduledJob', {
-  schedule: '0 */5 * * * *',
+  schedule: '0 0 0 * * *',
   runOnStartup: false,
   handler: async (_timer, context: InvocationContext): Promise<void> => {
     runJob('scheduled', context);
