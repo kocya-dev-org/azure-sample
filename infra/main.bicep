@@ -1,6 +1,6 @@
 targetScope = 'resourceGroup'
 
-@description('Static Web Apps を配置する Azure リージョン。')
+@description('Functions API を含むリージョナル Azure リソースの配置先リージョン。')
 param location string = 'eastus2'
 
 @description('Static Web Apps のグローバルに一意なリソース名。')
@@ -32,7 +32,7 @@ resource staticWebApp 'Microsoft.Web/staticSites@2025-03-01' = {
 @description('Function App のグローバルに一意なリソース名。')
 param functionAppName string = 'func-flex-${uniqueString(resourceGroup().id)}'
 
-@description('Function App の実行用ストレージアカウント名。')
+@description('Function App のホスト状態とデプロイパッケージを保存するストレージアカウント名。')
 param functionStorageAccountName string = 'stfn${uniqueString(resourceGroup().id)}'
 
 @description('Cosmos DB アカウント名。')
@@ -176,6 +176,7 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
   tags: tags
   properties: {
     databaseAccountOfferType: 'Standard'
+    // Free Tier はサブスクリプションごとに1アカウント、最大1,000 RU/s・25 GBまでが対象。
     enableFreeTier: true
     locations: [
       {
@@ -191,6 +192,7 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
     disableLocalAuth: true
     isVirtualNetworkFilterEnabled: false
     disableKeyBasedMetadataWriteAccess: true
+    // Free Tier の RU/s 枠を超えるスループット割り当てを防ぐ。
     capacity: {
       totalThroughputLimit: 1000
     }
@@ -205,6 +207,7 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024
       id: cosmosDatabaseName
     }
     options: {
+      // Free Tier の1,000 RU/s枠内で共有スループットを設定。
       throughput: 400
     }
   }
@@ -451,7 +454,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09
   }
 }
 
-@description('Static Web Apps の API を監視する Application Insights。')
+@description('Azure Functions API のテレメトリを収集する Application Insights。')
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: 'appi-${staticWebAppName}'
   location: location
@@ -463,7 +466,7 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
-@description('Static Web Apps の API に Application Insights の接続文字列を設定します。')
+@description('Static Web Apps のアプリケーション設定に Application Insights 接続文字列を登録します。')
 resource staticWebAppSettings 'Microsoft.Web/staticSites/config@2025-03-01' = {
   parent: staticWebApp
   name: 'appsettings'
