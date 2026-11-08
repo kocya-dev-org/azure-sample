@@ -1,0 +1,200 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="flyingfish-architecture" name="Flyingfish アーキテクチャ">
+    <mxGraphModel dx="1600" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- タイトル -->
+        <mxCell id="title" value="&lt;b&gt;Flyingfish アーキテクチャ (infra/main.bicep)&lt;/b&gt;" style="text;html=1;fontSize=18;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="160" y="0" width="600" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- リソースグループ -->
+        <mxCell id="rg" value="リソースグループ (targetScope = resourceGroup) / location: eastus2" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#F5F5F5;strokeColor=#666666;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="160" y="40" width="1420" height="900" as="geometry" />
+        </mxCell>
+
+        <!-- VNet -->
+        <mxCell id="vnet" value="VNet: vnet-{staticWebAppName}&lt;br&gt;10.40.0.0/16" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6F2FA;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="560" y="100" width="660" height="530" as="geometry" />
+        </mxCell>
+        <mxCell id="subnetInt" value="Subnet: function-integration&lt;br&gt;10.40.1.0/27&lt;br&gt;委任: Microsoft.App/environments" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#FFFFFF;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=8;spacingTop=2;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="590" y="160" width="290" height="280" as="geometry" />
+        </mxCell>
+        <mxCell id="subnetPe" value="Subnet: private-endpoints&lt;br&gt;10.40.2.0/24&lt;br&gt;privateEndpointNetworkPolicies: Disabled" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#FFFFFF;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=8;spacingTop=2;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="920" y="160" width="270" height="440" as="geometry" />
+        </mxCell>
+
+        <!-- 監視グループ -->
+        <mxCell id="monitor" value="監視" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#FFFFFF;strokeColor=#999999;verticalAlign=top;align=left;spacingLeft=8;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="580" width="300" height="330" as="geometry" />
+        </mxCell>
+
+        <!-- 利用者 -->
+        <mxCell id="user" value="利用者 (ブラウザー)" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="50" y="290" width="40" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Static Web Apps -->
+        <mxCell id="swa" value="&lt;b&gt;Static Web Apps&lt;/b&gt;&lt;br&gt;swa-flyingfish-*&lt;br&gt;SKU: Standard&lt;br&gt;ステージング環境: 有効&lt;br&gt;パブリックアクセス: 有効" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/preview/Static_Apps.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="300" y="140" width="56" height="56" as="geometry" />
+        </mxCell>
+
+        <!-- Function App -->
+        <mxCell id="func" value="&lt;b&gt;Function App&lt;/b&gt;&lt;br&gt;func-flex-*&lt;br&gt;Linux / Node.js 22&lt;br&gt;最大 40 インスタンス / 512 MB&lt;br&gt;HTTPS のみ / TLS 1.2&lt;br&gt;システム割り当てマネージド ID" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/compute/Function_Apps.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="707" y="230" width="56" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Flex Consumption プラン -->
+        <mxCell id="plan" value="&lt;b&gt;App Service プラン&lt;/b&gt;&lt;br&gt;plan-func-flex-*&lt;br&gt;FC1 (Flex Consumption)" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/app_services/App_Service_Plans.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="610" y="700" width="50" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Function 用ストレージ -->
+        <mxCell id="funcStorage" value="&lt;b&gt;ストレージアカウント (Functions 用)&lt;/b&gt;&lt;br&gt;stfn*&lt;br&gt;StorageV2 / Standard_LRS&lt;br&gt;共有キー無効 / パブリック BLOB 無効&lt;br&gt;コンテナー: function-packages" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/storage/Storage_Accounts.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="810" y="700" width="50" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- プライベートエンドポイント -->
+        <mxCell id="peCosmos" value="&lt;b&gt;プライベートエンドポイント&lt;/b&gt;&lt;br&gt;pe-cosmos-*&lt;br&gt;groupId: Sql" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/networking/Private_Link.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="230" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="peBlob" value="&lt;b&gt;プライベートエンドポイント&lt;/b&gt;&lt;br&gt;pe-stdata*-blob&lt;br&gt;groupId: blob" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/networking/Private_Link.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="440" width="50" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- Cosmos DB -->
+        <mxCell id="cosmos" value="&lt;b&gt;Azure Cosmos DB (NoSQL)&lt;/b&gt;&lt;br&gt;cosmos-*&lt;br&gt;Free Tier / Session 一貫性&lt;br&gt;DB: flyingfish (400 RU/s)&lt;br&gt;コンテナー: records (/id)&lt;br&gt;パブリックアクセス: 無効&lt;br&gt;ローカル認証: 無効" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/databases/Azure_Cosmos_DB.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1380" y="230" width="50" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- データ用ストレージ -->
+        <mxCell id="dataStorage" value="&lt;b&gt;ストレージアカウント (データ用)&lt;/b&gt;&lt;br&gt;stdata*&lt;br&gt;StorageV2 / Standard_LRS&lt;br&gt;コンテナー: objects&lt;br&gt;パブリックアクセス: 無効&lt;br&gt;共有キー無効" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/storage/Storage_Accounts.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1380" y="445" width="50" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- プライベート DNS ゾーン -->
+        <mxCell id="dnsCosmos" value="&lt;b&gt;プライベート DNS ゾーン&lt;/b&gt;&lt;br&gt;privatelink.documents.azure.com" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/networking/DNS_Zones.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="990" y="700" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="dnsBlob" value="&lt;b&gt;プライベート DNS ゾーン&lt;/b&gt;&lt;br&gt;privatelink.blob.core.windows.net" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/networking/DNS_Zones.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1180" y="700" width="50" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- 監視リソース -->
+        <mxCell id="appi" value="&lt;b&gt;Application Insights&lt;/b&gt;&lt;br&gt;appi-{staticWebAppName}" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/devops/Application_Insights.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="325" y="620" width="44" height="63" as="geometry" />
+        </mxCell>
+        <mxCell id="law" value="&lt;b&gt;Log Analytics ワークスペース&lt;/b&gt;&lt;br&gt;law-{staticWebAppName}&lt;br&gt;PerGB2018 / 保持 30 日" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/analytics/Log_Analytics_Workspaces.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="322" y="780" width="50" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- RBAC 注記 -->
+        <mxCell id="rbac" value="&lt;b&gt;Function App マネージド ID のロール割り当て&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;u&gt;Functions 用ストレージ&lt;/u&gt;&lt;br&gt;・Storage Blob Data Owner&lt;br&gt;・Storage Queue Data Contributor&lt;br&gt;・Storage Table Data Contributor&lt;br&gt;&lt;br&gt;&lt;u&gt;データ用ストレージ&lt;/u&gt;&lt;br&gt;・Storage Blob Data Contributor&lt;br&gt;&lt;br&gt;&lt;u&gt;Cosmos DB&lt;/u&gt;&lt;br&gt;・Cosmos DB Built-in Data Contributor" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontSize=11;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="640" width="260" height="270" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 接続線 ===== -->
+        <mxCell id="e_user_swa" value="HTTPS&lt;br&gt;(静的コンテンツ)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#0078D4;fontSize=11;" edge="1" parent="1" source="user" target="swa">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_user_func" value="HTTPS (API)&lt;br&gt;CORS: SWA の既定ホスト名のみ許可" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#0078D4;fontSize=11;exitX=1;exitY=0.75;exitDx=0;exitDy=0;" edge="1" parent="1" source="user" target="func">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="520" y="343" />
+              <mxPoint x="520" y="255" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_func_peCosmos" value="VNet 統合 (送信)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;fontSize=11;" edge="1" parent="1" source="func" target="peCosmos">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_func_peBlob" value="VNet 統合 (送信)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;fontSize=11;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="func" target="peBlob">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="735" y="400" />
+              <mxPoint x="900" y="400" />
+              <mxPoint x="900" y="465" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_peCosmos_cosmos" value="Private Link" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;fontSize=11;" edge="1" parent="1" source="peCosmos" target="cosmos">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_peBlob_data" value="Private Link" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;fontSize=11;" edge="1" parent="1" source="peBlob" target="dataStorage">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_func_funcStorage" value="AzureWebJobsStorage /&lt;br&gt;デプロイパッケージ&lt;br&gt;(マネージド ID)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.5;strokeColor=#333333;fontSize=11;exitX=0.75;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="func" target="funcStorage">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="749" y="380" />
+              <mxPoint x="835" y="380" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_func_plan" value="ホスト" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#666666;fontSize=11;endArrow=none;exitX=0.25;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="func" target="plan">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="721" y="370" />
+              <mxPoint x="635" y="370" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_func_appi" value="テレメトリ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#8A3FFC;fontSize=11;exitX=0;exitY=0.75;exitDx=0;exitDy=0;" edge="1" parent="1" source="func" target="appi">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="540" y="268" />
+              <mxPoint x="540" y="650" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_swa_appi" value="テレメトリ&lt;br&gt;(appsettings)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#8A3FFC;fontSize=11;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="swa" target="appi">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="240" y="168" />
+              <mxPoint x="240" y="650" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_appi_law" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#8A3FFC;fontSize=11;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="appi" target="law">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="460" y="652" />
+              <mxPoint x="460" y="805" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_appi_law_label" value="ログ保存" style="text;html=1;fontSize=11;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="465" y="715" width="40" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="e_swa_func_cors" value="CORS 許可オリジン&lt;br&gt;(defaultHostname 参照)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;dashPattern=1 3;strokeColor=#999999;fontSize=10;fontColor=#666666;endArrow=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="swa" target="func">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="735" y="168" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_peCosmos_dns" value="DNS ゾーングループ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#0078D4;fontSize=10;endArrow=none;exitX=0;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="peCosmos" target="dnsCosmos">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="950" y="255" />
+              <mxPoint x="950" y="660" />
+              <mxPoint x="1015" y="660" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_peBlob_dns" value="DNS ゾーングループ" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#0078D4;fontSize=10;endArrow=none;exitX=1;exitY=0.75;exitDx=0;exitDy=0;" edge="1" parent="1" source="peBlob" target="dnsBlob">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1205" y="478" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_dns_vnet_note" value="両 DNS ゾーンは VNet にリンク&lt;br&gt;(link-vnet-*, 自動登録: 無効)" style="text;html=1;fontSize=10;align=center;verticalAlign=middle;fontColor=#0078D4;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="830" width="200" height="34" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
