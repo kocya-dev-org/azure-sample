@@ -1,7 +1,7 @@
 targetScope = 'resourceGroup'
 
 @description('Static Web Apps を配置する Azure リージョン。')
-param location string = 'eastus'
+param location string = 'eastus2'
 
 @description('Static Web Apps のグローバルに一意なリソース名。')
 @minLength(2)
@@ -176,6 +176,7 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
   tags: tags
   properties: {
     databaseAccountOfferType: 'Standard'
+    enableFreeTier: true
     locations: [
       {
         locationName: location
@@ -190,6 +191,9 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
     disableLocalAuth: true
     isVirtualNetworkFilterEnabled: false
     disableKeyBasedMetadataWriteAccess: true
+    capacity: {
+      totalThroughputLimit: 1000
+    }
   }
 }
 
