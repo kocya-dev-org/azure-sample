@@ -1,0 +1,242 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="flyingfish-future" name="Flyingfish 将来構成 (note.md 採用時)">
+    <mxGraphModel dx="2000" dy="1300" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2000" pageHeight="1320" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- タイトル -->
+        <mxCell id="title" value="&lt;b&gt;Flyingfish 将来構成 (note.md の提言を採用した場合)&lt;/b&gt;" style="text;html=1;fontSize=18;align=left;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="170" y="0" width="800" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- ===== コンテナー ===== -->
+        <mxCell id="rg" value="リソースグループ (targetScope = resourceGroup) / location: eastus2" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#F5F5F5;strokeColor=#666666;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="170" y="40" width="1800" height="1260" as="geometry" />
+        </mxCell>
+        <mxCell id="vnet" value="VNet: vnet-{staticWebAppName}&lt;br&gt;10.40.0.0/16" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#E6F2FA;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="600" y="100" width="1000" height="820" as="geometry" />
+        </mxCell>
+        <mxCell id="snetApim" value="&lt;b&gt;[新規]&lt;/b&gt; Subnet: apim&lt;br&gt;(SKU のネットワーク機能を要確認)" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#FFFFFF;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="630" y="380" width="210" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="snetApi" value="Subnet: function-integration (API)&lt;br&gt;10.40.1.0/27" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#FFFFFF;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="870" y="150" width="230" height="230" as="geometry" />
+        </mxCell>
+        <mxCell id="snetWorker" value="&lt;b&gt;[オプション]&lt;/b&gt; Subnet: worker-integration" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#FAFAFA;strokeColor=#999999;verticalAlign=top;align=left;spacingLeft=6;fontSize=10;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="870" y="420" width="230" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="snetFw" value="&lt;b&gt;[オプション]&lt;/b&gt; Subnet: AzureFirewallSubnet" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#FAFAFA;strokeColor=#999999;verticalAlign=top;align=left;spacingLeft=6;fontSize=10;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="630" y="700" width="470" height="190" as="geometry" />
+        </mxCell>
+        <mxCell id="snetPe" value="Subnet: private-endpoints&lt;br&gt;10.40.2.0/24" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#FFFFFF;strokeColor=#0078D4;verticalAlign=top;align=left;spacingLeft=6;fontSize=10;" vertex="1" parent="1">
+          <mxGeometry x="1140" y="150" width="430" height="740" as="geometry" />
+        </mxCell>
+        <mxCell id="monitor" value="監視・運用" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#FFFFFF;strokeColor=#999999;verticalAlign=top;align=left;spacingLeft=8;fontStyle=1;" vertex="1" parent="1">
+          <mxGeometry x="200" y="960" width="900" height="310" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 外部 ===== -->
+        <mxCell id="user" value="利用者 (ブラウザー)&lt;br&gt;複数テナント" style="shape=umlActor;verticalLabelPosition=bottom;verticalAlign=top;html=1;outlineConnect=0;" vertex="1" parent="1">
+          <mxGeometry x="50" y="420" width="40" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="entra" value="&lt;b&gt;[新規] Entra ID / 外部 ID&lt;/b&gt;&lt;br&gt;利用者認証&lt;br&gt;許可する組織・テナントを限定" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/identity/Azure_Active_Directory.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="45" y="150" width="50" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===== エッジ ===== -->
+        <mxCell id="fd" value="&lt;b&gt;[新規] Front Door + WAF&lt;/b&gt;&lt;br&gt;独自ドメイン / TLS 終端&lt;br&gt;WAF ポリシー / ボット対策&lt;br&gt;/ → SWA、/api/* → APIM" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/networking/Front_Doors.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="240" y="430" width="50" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===== アプリ ===== -->
+        <mxCell id="swa" value="&lt;b&gt;Static Web Apps&lt;/b&gt;&lt;br&gt;swa-flyingfish-* (Standard)&lt;br&gt;[変更] 認証必須ルート定義&lt;br&gt;[変更] BYOF 直接リンクを廃止&lt;br&gt;Front Door 経由のみ受付" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/preview/Static_Apps.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="430" y="180" width="56" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="apim" value="&lt;b&gt;[新規] API Management&lt;/b&gt;&lt;br&gt;JWT 検証 (集中)&lt;br&gt;利用者 / テナント単位の&lt;br&gt;レート制限・クォータ&lt;br&gt;Front Door 経由のみ許可" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=11;image=img/lib/azure2/integration/API_Management_Services.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="710" y="430" width="50" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="funcApi" value="&lt;b&gt;Function App (API)&lt;/b&gt;&lt;br&gt;func-flex-* / FC1 / Node.js&lt;br&gt;[変更] トークン検証・テナント認可&lt;br&gt;[変更] ページング・入力上限&lt;br&gt;[変更] 直接アクセス禁止&lt;br&gt;専用マネージド ID (最小権限)" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/compute/Function_Apps.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="960" y="210" width="56" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="funcWorker" value="&lt;b&gt;[オプション] Function App (ワーカー)&lt;/b&gt;&lt;br&gt;定期 / 手動ジョブ実行&lt;br&gt;API と分離した専用 MI&lt;br&gt;Cosmos / Blob へ PE 経由" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/compute/Function_Apps.svg;verticalLabelPosition=bottom;verticalAlign=top;opacity=60;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="960" y="480" width="56" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="fw" value="&lt;b&gt;[オプション] Azure Firewall&lt;/b&gt;&lt;br&gt;統合サブネットの送信を UDR で集約&lt;br&gt;FQDN ベースの送信先制限 / 脅威検知" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/networking/Firewalls.svg;verticalLabelPosition=bottom;verticalAlign=top;opacity=60;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="840" y="740" width="50" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===== プライベートエンドポイント ===== -->
+        <mxCell id="peFunc" value="&lt;b&gt;[新規] PE&lt;/b&gt;&lt;br&gt;Function App 受信&lt;br&gt;(sites)" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/networking/Private_Link.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1210" y="210" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="peCosmos" value="&lt;b&gt;PE&lt;/b&gt; pe-cosmos-*&lt;br&gt;groupId: Sql" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/networking/Private_Link.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1430" y="210" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="peData" value="&lt;b&gt;PE&lt;/b&gt; pe-stdata*-blob&lt;br&gt;groupId: blob" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/networking/Private_Link.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1430" y="400" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="peFuncSt" value="&lt;b&gt;[新規] PE × 必要数&lt;/b&gt;&lt;br&gt;Functions 用 Storage&lt;br&gt;blob / queue / table" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/networking/Private_Link.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1430" y="590" width="40" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="pePg" value="&lt;b&gt;[オプション] PE&lt;/b&gt;&lt;br&gt;PostgreSQL" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/networking/Private_Link.svg;verticalLabelPosition=bottom;verticalAlign=top;opacity=60;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1430" y="780" width="40" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ===== データ ===== -->
+        <mxCell id="cosmos" value="&lt;b&gt;Azure Cosmos DB (NoSQL)&lt;/b&gt;&lt;br&gt;[変更] パーティションキー: テナント単位&lt;br&gt;[変更] 連続バックアップ / PITR&lt;br&gt;[変更] 実測に基づく RU・オートスケール&lt;br&gt;　 (必要に応じ複数リージョン)&lt;br&gt;パブリックアクセス無効 / ローカル認証無効" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/databases/Azure_Cosmos_DB.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1740" y="205" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="dataStorage" value="&lt;b&gt;ストレージ (データ用) stdata*&lt;/b&gt;&lt;br&gt;[変更] テナント単位の名前空間&lt;br&gt;[変更] バージョン管理 / 論理削除&lt;br&gt;[変更] ライフサイクル管理&lt;br&gt;パブリックアクセス無効 / 共有キー無効" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/storage/Storage_Accounts.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1740" y="400" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="funcStorage" value="&lt;b&gt;ストレージ (Functions 用) stfn*&lt;/b&gt;&lt;br&gt;[変更] パブリックアクセス無効&lt;br&gt;(接続確認後に切り替え)&lt;br&gt;共有キー無効" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/storage/Storage_Accounts.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1740" y="590" width="50" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="pg" value="&lt;b&gt;[オプション] PostgreSQL&lt;/b&gt;&lt;br&gt;リレーショナル要件発生時&lt;br&gt;HA / 接続プーリング / RLS" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/databases/Azure_Database_PostgreSQL_Server.svg;verticalLabelPosition=bottom;verticalAlign=top;opacity=60;fontColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1740" y="775" width="50" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 監視 ===== -->
+        <mxCell id="appi" value="&lt;b&gt;Application Insights&lt;/b&gt;&lt;br&gt;API エラー / Functions 失敗" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/devops/Application_Insights.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="268" y="1000" width="44" height="63" as="geometry" />
+        </mxCell>
+        <mxCell id="law" value="&lt;b&gt;Log Analytics&lt;/b&gt;&lt;br&gt;[変更] 監査ログ / 認証・認可失敗&lt;br&gt;レート制限 / 診断ログ集約" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/analytics/Log_Analytics_Workspaces.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="475" y="1005" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="alerts" value="&lt;b&gt;[新規] アラート&lt;/b&gt;&lt;br&gt;要対応事象の通知" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/management_governance/Alerts.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="685" y="1005" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="budget" value="&lt;b&gt;[新規] コスト予算&lt;/b&gt;&lt;br&gt;環境別予算 / 利用量アラート" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/management_governance/Cost_Management_and_Billing.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="895" y="1005" width="50" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="monitorNote" value="全リソースの診断設定・テレメトリを Log Analytics に集約 / 復元手順と接続切り替えを定期確認" style="text;html=1;fontSize=10;align=left;verticalAlign=middle;fontColor=#555555;" vertex="1" parent="1">
+          <mxGeometry x="220" y="1230" width="860" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- ===== DNS ===== -->
+        <mxCell id="dns" value="&lt;b&gt;プライベート DNS ゾーン (VNet リンク)&lt;/b&gt;&lt;br&gt;privatelink.documents.azure.com&lt;br&gt;privatelink.blob.core.windows.net&lt;br&gt;[新規] privatelink.queue.core.windows.net&lt;br&gt;[新規] privatelink.table.core.windows.net&lt;br&gt;[新規] privatelink.azurewebsites.net&lt;br&gt;[オプション] privatelink.postgres.database.azure.com" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=10;image=img/lib/azure2/networking/DNS_Zones.svg;verticalLabelPosition=bottom;verticalAlign=top;" vertex="1" parent="1">
+          <mxGeometry x="1225" y="980" width="50" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 凡例・RBAC ===== -->
+        <mxCell id="legend" value="&lt;b&gt;凡例&lt;/b&gt;&lt;br&gt;&lt;br&gt;[新規] note.md により追加&lt;br&gt;[変更] 既存リソースの設定変更&lt;br&gt;[オプション] 要件発生時に追加 (淡色・破線)&lt;br&gt;&lt;br&gt;━ 青: 利用者リクエスト&lt;br&gt;━ 緑: プライベート通信&lt;br&gt;┅ 紫: 認証 / トークン&lt;br&gt;&lt;br&gt;&lt;b&gt;廃止される経路&lt;/b&gt;&lt;br&gt;・ブラウザー → Function App 直接&lt;br&gt;・SWA → Function App (BYOF リンク)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#999999;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontSize=10;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="1400" y="960" width="260" height="310" as="geometry" />
+        </mxCell>
+        <mxCell id="rbac" value="&lt;b&gt;マネージド ID の権限 (最小化)&lt;/b&gt;&lt;br&gt;&lt;br&gt;&lt;u&gt;API 用 MI&lt;/u&gt;&lt;br&gt;・Cosmos DB データ共同作成者&lt;br&gt;　→ DB / コンテナー単位に限定&lt;br&gt;・Storage Blob Data Contributor&lt;br&gt;　→ コンテナー単位に限定&lt;br&gt;・Functions 用 Storage: 必要ロールのみ&lt;br&gt;&lt;br&gt;&lt;u&gt;ワーカー用 MI (オプション)&lt;/u&gt;&lt;br&gt;・ジョブに必要な範囲のみ付与&lt;br&gt;&lt;br&gt;管理者操作・削除・手動ジョブは&lt;br&gt;通常利用者のロールから分離" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF2CC;strokeColor=#D6B656;align=left;verticalAlign=top;spacingLeft=8;spacingTop=4;fontSize=10;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="1690" y="960" width="260" height="310" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 接続線: 利用者リクエスト ===== -->
+        <mxCell id="e_user_fd" value="HTTPS&lt;br&gt;(独自ドメイン)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#0078D4;fontSize=10;" edge="1" parent="1" source="user" target="fd">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_fd_swa" value="/ (Web)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#0078D4;fontSize=10;exitX=0.5;exitY=0;exitDx=0;exitDy=0;" edge="1" parent="1" source="fd" target="swa">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="265" y="208" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_fd_apim" value="/api/*" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#0078D4;fontSize=10;" edge="1" parent="1" source="fd" target="apim">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_apim_peFunc" value="JWT 検証済み / 制限適用後に転送" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;fontSize=10;exitX=0.8;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="apim" target="peFunc">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="750" y="140" />
+              <mxPoint x="1230" y="140" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_peFunc_func" value="プライベート受信" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;fontSize=10;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.4;entryDx=0;entryDy=0;" edge="1" parent="1" source="peFunc" target="funcApi">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 接続線: Function → データ (VNet 統合送信バス) ===== -->
+        <mxCell id="e_func_peCosmos" value="VNet 統合 (送信)&lt;br&gt;マネージド ID" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;fontSize=10;exitX=1;exitY=0.9;exitDx=0;exitDy=0;" edge="1" parent="1" source="funcApi" target="peCosmos">
+          <mxGeometry x="-0.55" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="255" />
+              <mxPoint x="1120" y="400" />
+              <mxPoint x="1330" y="400" />
+              <mxPoint x="1330" y="230" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_func_peData" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;fontSize=10;exitX=1;exitY=0.9;exitDx=0;exitDy=0;" edge="1" parent="1" source="funcApi" target="peData">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="255" />
+              <mxPoint x="1120" y="400" />
+              <mxPoint x="1330" y="400" />
+              <mxPoint x="1330" y="420" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_func_peFuncSt" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;fontSize=10;exitX=1;exitY=0.9;exitDx=0;exitDy=0;" edge="1" parent="1" source="funcApi" target="peFuncSt">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1120" y="255" />
+              <mxPoint x="1120" y="400" />
+              <mxPoint x="1330" y="400" />
+              <mxPoint x="1330" y="610" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_worker_bus" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.5;strokeColor=#999999;dashed=1;fontSize=10;exitX=1;exitY=0.5;exitDx=0;exitDy=0;endArrow=none;" edge="1" parent="1" source="funcWorker">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1330" y="505" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_pePg_pg" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=1.5;strokeColor=#999999;dashed=1;fontSize=10;" edge="1" parent="1" source="pePg" target="pg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 接続線: Private Link ===== -->
+        <mxCell id="e_peCosmos_cosmos" value="Private Link" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;fontSize=10;" edge="1" parent="1" source="peCosmos" target="cosmos">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_peData_data" value="Private Link" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;fontSize=10;" edge="1" parent="1" source="peData" target="dataStorage">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_peFuncSt_funcSt" value="Private Link" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;fontSize=10;" edge="1" parent="1" source="peFuncSt" target="funcStorage">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ===== 接続線: 認証 ===== -->
+        <mxCell id="e_entra_user" value="サインイン&lt;br&gt;(トークン発行)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeWidth=1.5;strokeColor=#8A3FFC;fontSize=10;" edge="1" parent="1" source="entra" target="user">
+          <mxGeometry y="20" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_entra_swa" value="SWA 認証プロバイダー" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeWidth=1.5;strokeColor=#8A3FFC;fontSize=10;endArrow=none;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;" edge="1" parent="1" source="entra" target="swa">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="200" y="175" />
+              <mxPoint x="200" y="197" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e_entra_apim" value="JWT 署名鍵 (OpenID 構成)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeWidth=1.5;strokeColor=#8A3FFC;fontSize=10;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="entra" target="apim">
+          <mxGeometry x="-0.3" relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="70" y="70" />
+              <mxPoint x="720" y="70" />
+            </Array>
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ===== 接続線: 監視 ===== -->
+        <mxCell id="e_appi_law" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#8A3FFC;" edge="1" parent="1" source="appi" target="law">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_law_alerts" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#8A3FFC;" edge="1" parent="1" source="law" target="alerts">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
