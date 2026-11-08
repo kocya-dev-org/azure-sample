@@ -176,6 +176,7 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
   tags: tags
   properties: {
     databaseAccountOfferType: 'Standard'
+    enableFreeTier: true
     locations: [
       {
         locationName: location
@@ -190,6 +191,9 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
     disableLocalAuth: true
     isVirtualNetworkFilterEnabled: false
     disableKeyBasedMetadataWriteAccess: true
+    capacity: {
+      totalThroughputLimit: 1000
+    }
   }
 }
 
