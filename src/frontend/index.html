@@ -63,6 +63,8 @@
       button.secondary { border: 1px solid #52657d; background: #26364b; color: #edf3fb; }
       button:hover { filter: brightness(1.09); }
       button:disabled { opacity: .55; cursor: wait; }
+      .button-link { display: inline-block; margin-top: 8px; border: 1px solid #52657d; border-radius: 9px; padding: 10px 15px; background: #26364b; color: #edf3fb; font-weight: 700; text-decoration: none; }
+      .button-link:hover { filter: brightness(1.09); }
       pre { min-height: 44px; margin: 14px 0 0; padding: 12px; overflow: auto; border-radius: 9px; background: #111b29; color: #d6f7ee; white-space: pre-wrap; overflow-wrap: anywhere; }
       #status { min-height: 1.5em; color: #edf3fb; }
       footer { margin-top: 24px; color: #8292a8; font-size: .85rem; }
@@ -74,6 +76,7 @@
       <p class="eyebrow">Azure · Static Web Apps</p>
       <h1>Flyingfish</h1>
       <p class="intro">Bicep で構築した Azure Functions、Cosmos DB、非公開 Blob Storage の読み書きサンプルです。</p>
+      <a class="button-link" href="/.auth/logout?post_logout_redirect_uri=%2F">ログアウト</a>
 
       <section class="card" aria-labelledby="job-title">
         <h2 id="job-title">定期実行 Function</h2>
