@@ -11,7 +11,7 @@
         </mxCell>
 
         <!-- リソースグループ -->
-        <mxCell id="rg" value="リソースグループ (targetScope = resourceGroup) / location: eastus2" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#F5F5F5;strokeColor=#666666;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;" vertex="1" parent="1">
+        <mxCell id="rg" value="リソースグループ (targetScope = resourceGroup) / location: japaneast" style="rounded=0;whiteSpace=wrap;html=1;dashed=1;fillColor=#F5F5F5;strokeColor=#666666;verticalAlign=top;align=left;spacingLeft=10;spacingTop=4;fontStyle=1;" vertex="1" parent="1">
           <mxGeometry x="160" y="40" width="1420" height="900" as="geometry" />
         </mxCell>
 

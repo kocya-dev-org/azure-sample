@@ -1,7 +1,7 @@
 targetScope = 'resourceGroup'
 
 @description('Functions API を含むリージョナル Azure リソースの配置先リージョン。')
-param location string = 'eastus2'
+param location string = 'japaneast'
 
 @description('フロントエンド静的サイト用ストレージアカウント名。')
 @minLength(3)
