@@ -60,7 +60,7 @@ jobs:
             jq -er --arg key "$1" '.[$key].value | strings | select(length > 0)' <<< "$deployment_outputs"
           }
 
-          static_web_app_name=$(output_value staticWebAppName)
+          frontend_storage_name=$(output_value frontendStorageAccountName)
           function_app_name=$(output_value functionAppName)
           function_plan_name=$(output_value functionPlanName)
           function_storage_name=$(output_value functionStorageAccountName)
@@ -127,8 +127,8 @@ jobs:
             done <<< "$cosmos_role_assignment_ids"
           fi
 
-          echo "Deleting linked Static Web App and private endpoints."
-          az resource delete --ids "$(resource_id 'Microsoft.Web/staticSites' "$static_web_app_name")"
+          echo "Deleting frontend storage and private endpoints."
+          az resource delete --ids "$(resource_id 'Microsoft.Storage/storageAccounts' "$frontend_storage_name")"
           az resource delete --ids "$(resource_id 'Microsoft.Network/privateEndpoints' "$cosmos_private_endpoint_name")"
           az resource delete --ids "$(resource_id 'Microsoft.Network/privateEndpoints' "$blob_private_endpoint_name")"
 

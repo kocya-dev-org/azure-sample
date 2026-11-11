@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#101827">
-    <meta name="description" content="Azure Static Web Apps、Functions、Cosmos DB、Blob Storage のサンプルです。">
+    <meta name="description" content="Azure Blob 静的サイト、Functions、Cosmos DB、Blob Storage のサンプルです。">
     <title>Flyingfish | Azure サンプル</title>
     <style>
       :root {
@@ -73,10 +73,9 @@
   </head>
   <body>
     <main>
-      <p class="eyebrow">Azure · Static Web Apps</p>
+      <p class="eyebrow">Azure · Blob Static Website</p>
       <h1>Flyingfish</h1>
       <p class="intro">Bicep で構築した Azure Functions、Cosmos DB、非公開 Blob Storage の読み書きサンプルです。</p>
-      <a class="button-link" href="/.auth/logout?post_logout_redirect_uri=%2F">ログアウト</a>
 
       <section class="card" aria-labelledby="job-title">
         <h2 id="job-title">定期実行 Function</h2>
@@ -132,14 +131,16 @@
       <p id="status" role="status" aria-live="polite"></p>
       <footer>静的ページと Functions API は GitHub Actions からデプロイします。</footer>
     </main>
+    <script src="config.js"></script>
     <script>
+      const apiBaseUrl = `${window.API_BASE_URL}/api`;
       const status = document.querySelector('#status');
       const recordResult = document.querySelector('#record-result');
       const blobResult = document.querySelector('#blob-result');
       const buttons = [...document.querySelectorAll('button')];
 
       async function request(path, method = 'GET', body) {
-        const response = await fetch(path, {
+        const response = await fetch(`${apiBaseUrl}${path.replace(/^\/api/, '')}`, {
           method,
           headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
           body: body === undefined ? undefined : JSON.stringify(body),

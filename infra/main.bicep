@@ -3,10 +3,10 @@ targetScope = 'resourceGroup'
 @description('Functions API を含むリージョナル Azure リソースの配置先リージョン。')
 param location string = 'eastus2'
 
-@description('Static Web Apps のグローバルに一意なリソース名。')
-@minLength(2)
-@maxLength(40)
-param staticWebAppName string = 'swa-flyingfish-${uniqueString(resourceGroup().id)}'
+@description('フロントエンド静的サイト用ストレージアカウント名。')
+@minLength(3)
+@maxLength(24)
+param frontendStorageAccountName string = 'stweb${uniqueString(resourceGroup().id)}'
 
 @description('リソースに付与するタグ。')
 param tags object = {
@@ -14,18 +14,27 @@ param tags object = {
   application: 'flyingfish'
 }
 
-resource staticWebApp 'Microsoft.Web/staticSites@2025-03-01' = {
-  name: staticWebAppName
+resource frontendStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: frontendStorageAccountName
   location: location
+  kind: 'StorageV2'
+  sku: { name: 'Standard_LRS' }
   tags: tags
-  sku: {
-    name: 'Standard'
-    tier: 'Standard'
-  }
   properties: {
-    allowConfigFileUpdates: true
-    stagingEnvironmentPolicy: 'Enabled'
-    publicNetworkAccess: 'Enabled'
+    minimumTlsVersion: 'TLS1_2'
+    allowBlobPublicAccess: true
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource frontendBlobService 'Microsoft.Storage/storageAccounts/blobServices@2026-09-01' = {
+  parent: frontendStorage
+  name: 'default'
+  properties: {
+    staticWebsite: {
+      enabled: true
+      indexDocument: 'index.html'
+    }
   }
 }
 
@@ -42,7 +51,7 @@ param cosmosAccountName string = 'cosmos-${uniqueString(resourceGroup().id)}'
 param dataStorageAccountName string = 'stdata${uniqueString(resourceGroup().id)}'
 
 var functionPlanName = 'plan-${functionAppName}'
-var vnetName = 'vnet-${staticWebAppName}'
+var vnetName = 'vnet-${frontendStorageAccountName}'
 var integrationSubnetName = 'function-integration'
 var privateEndpointSubnetName = 'private-endpoints'
 var deploymentStorageContainerName = 'function-packages'
@@ -358,7 +367,7 @@ resource functionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'Storage__containerName', value: blobContainerName }
       ]
       cors: {
-        allowedOrigins: [ 'https://${staticWebApp.properties.defaultHostname}' ]
+        allowedOrigins: [ substring(frontendStorage.properties.primaryEndpoints.web, 0, length(frontendStorage.properties.primaryEndpoints.web) - 1) ]
         supportCredentials: false
       }
     }
@@ -443,7 +452,7 @@ resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAss
 
 @description('Application Insights のログを保存する Log Analytics ワークスペース。')
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
-  name: 'law-${staticWebAppName}'
+  name: 'law-${frontendStorageAccountName}'
   location: location
   tags: tags
   properties: {
@@ -456,7 +465,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09
 
 @description('Azure Functions API のテレメトリを収集する Application Insights。')
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
-  name: 'appi-${staticWebAppName}'
+  name: 'appi-${frontendStorageAccountName}'
   location: location
   kind: 'web'
   tags: tags
@@ -466,17 +475,9 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
-@description('Static Web Apps のアプリケーション設定に Application Insights 接続文字列を登録します。')
-resource staticWebAppSettings 'Microsoft.Web/staticSites/config@2025-03-01' = {
-  parent: staticWebApp
-  name: 'appsettings'
-  properties: {
-    APPLICATIONINSIGHTS_CONNECTION_STRING: appInsights.properties.ConnectionString
-  }
-}
-
-output staticWebAppName string = staticWebApp.name
-output staticWebAppHostname string = staticWebApp.properties.defaultHostname
+output frontendStorageAccountName string = frontendStorage.name
+output frontendUrl string = frontendStorage.properties.primaryEndpoints.web
+output functionAppUrl string = 'https://${functionApp.properties.defaultHostName}'
 output functionAppName string = functionApp.name
 output functionPlanName string = functionPlan.name
 output functionStorageAccountName string = functionStorage.name
