@@ -27,7 +27,7 @@ resource frontendStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   }
 }
 
-resource frontendBlobService 'Microsoft.Storage/storageAccounts/blobServices@2026-09-01' = {
+resource frontendBlobService 'Microsoft.Storage/storageAccounts/blobServices@2025-08-01' = {
   parent: frontendStorage
   name: 'default'
   properties: {
