@@ -2,207 +2,130 @@ name: Deploy Flyingfish
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    types:
-      - opened
-      - synchronize
-      - reopened
-      - closed
-    branches:
-      - main
+    types: [opened, synchronize, reopened]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
   changes:
-    name: Detect changed paths
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     outputs:
-      src: ${{ steps.filter.outputs.src }}
       infra: ${{ steps.filter.outputs.infra }}
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Filter changed paths
-        uses: dorny/paths-filter@v4
+      - uses: dorny/paths-filter@v4
         id: filter
         with:
-          # Use exact commit SHAs for deterministic PR and push change detection.
           base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before || github.ref }}
-          # Use git diff so the explicit base SHA is honored for pull requests.
           token: ''
           filters: |
-            src:
-              - 'src/**'
             infra:
               - 'infra/**'
+            backend:
+              - 'src/api/**'
+            frontend:
+              - 'src/frontend/**'
 
   validate-infra:
-    name: Validate Bicep
     needs: changes
-    if: >-
-      github.event.action != 'closed' &&
-      (needs.changes.outputs.infra == 'true' || github.event_name == 'workflow_dispatch')
+    if: github.event_name != 'pull_request' && (needs.changes.outputs.infra == 'true' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Lint and build Bicep
-        run: |
+      - uses: actions/checkout@v4
+      - run: |
           az bicep lint --file infra/main.bicep
           az bicep build --file infra/main.bicep
           az bicep build-params --file infra/environments/dev.bicepparam
 
   deploy-infrastructure:
-    name: Deploy Azure infrastructure
-    needs:
-      - changes
-      - validate-infra
-    if: >-
-      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.infra == 'true') ||
-      github.event_name == 'workflow_dispatch'
+    needs: [changes, validate-infra]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.infra == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    env:
-      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # Existing repository OIDC credentials are used here.
-      - name: Azure Login
-        uses: azure/login@v3
+      - uses: actions/checkout@v4
+      - uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy Bicep
+      - name: Deploy Bicep and remove legacy private endpoints
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
         run: |
-          az deployment group create \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --name flyingfish-dev \
-            --parameters infra/environments/dev.bicepparam \
-            --output none
+          az deployment group create -g "$RESOURCE_GROUP" -n flyingfish-dev -f infra/main.bicep -p infra/environments/dev.bicepparam
+          for resource in $(az network private-endpoint list -g "$RESOURCE_GROUP" --query "[?starts_with(name, 'pe-cosmos-') || starts_with(name, 'pe-stdata')].id" -o tsv); do
+            az resource delete --ids "$resource"
+          done
 
-          FRONTEND_STORAGE_ACCOUNT=$(az deployment group show \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --name flyingfish-dev \
-            --query properties.outputs.frontendStorageAccountName.value \
-            --output tsv)
-          FUNCTION_APP_NAME=$(az deployment group show \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --name flyingfish-dev \
-            --query properties.outputs.functionAppName.value \
-            --output tsv)
-
-  deploy-functions:
-    name: Deploy Azure Functions
-    needs:
-      - changes
-      - validate-infra
-      - deploy-infrastructure
+  deploy-backend:
+    needs: [changes, validate-infra, deploy-infrastructure]
     if: >-
-      always() &&
-      needs.changes.result == 'success' &&
-      needs.validate-infra.result != 'failure' &&
-      needs.validate-infra.result != 'cancelled' &&
-      (
-        (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.src == 'true' && (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')) ||
-        (github.event_name == 'workflow_dispatch' && needs.deploy-infrastructure.result == 'success')
-      )
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      needs.changes.outputs.backend == 'true' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
-    env:
-      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Azure Login
-        uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-
-      - name: Build and deploy Functions
-        working-directory: src/api
-        run: |
-          FUNCTION_APP_NAME=$(az deployment group show \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --name flyingfish-dev \
-            --query properties.outputs.functionAppName.value \
-            --output tsv)
+      - run: |
+          cd src/api
           npm ci
           npm run build
           npm prune --omit=dev
-          echo "FUNCTION_APP_NAME=$FUNCTION_APP_NAME" >> "$GITHUB_ENV"
-
-      - name: Publish Function App
-        uses: Azure/functions-action@v1
-        with:
-          app-name: ${{ env.FUNCTION_APP_NAME }}
-          package: src/api
-
-  deploy-frontend:
-    name: Deploy frontend
-    needs:
-      - changes
-      - validate-infra
-      - deploy-infrastructure
-      - deploy-functions
-    if: >-
-      always() &&
-      needs.changes.result == 'success' &&
-      needs.validate-infra.result != 'failure' &&
-      needs.validate-infra.result != 'cancelled' &&
-      needs.deploy-functions.result != 'failure' &&
-      needs.deploy-functions.result != 'cancelled' &&
-      (
-        (github.event_name == 'push' && needs.changes.outputs.src == 'true' && needs.deploy-functions.result == 'success' && (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')) ||
-        (github.event_name == 'workflow_dispatch' && needs.deploy-infrastructure.result == 'success' && needs.deploy-functions.result == 'success')
-      )
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    concurrency:
-      group: frontend-${{ github.ref }}
-      cancel-in-progress: true
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Azure Login
-        uses: azure/login@v3
+          mkdir -p ../../deploy/api
+          cp package.json package-lock.json ../../deploy/api/
+          cp -r dist ../../deploy/api/
+          cp -r node_modules ../../deploy/api/
+          cd ../../deploy
+          zip -qr ../backend.zip api
+      - uses: azure/login@v3
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy backend files
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+        run: az webapp deploy -g "$RESOURCE_GROUP" -n sample-azure --src-path backend.zip --type zip
 
-      - name: Upload frontend to Blob static website
-        shell: bash
+  deploy-frontend:
+    needs: [changes, validate-infra, deploy-infrastructure]
+    if: >-
+      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      needs.changes.outputs.frontend == 'true' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Package frontend under its own directory
         run: |
-          FRONTEND_STORAGE_ACCOUNT=$(az deployment group show --resource-group "$AZURE_RESOURCE_GROUP" --name flyingfish-dev --query properties.outputs.frontendStorageAccountName.value --output tsv)
-          FUNCTION_APP_URL=$(az deployment group show --resource-group "$AZURE_RESOURCE_GROUP" --name flyingfish-dev --query properties.outputs.functionAppUrl.value --output tsv)
-          printf 'window.API_BASE_URL = "%s";\n' "$FUNCTION_APP_URL" > src/frontend/config.js
-          az storage blob upload-batch --account-name "$FRONTEND_STORAGE_ACCOUNT" --auth-mode login --destination '$web' --source src/frontend --overwrite
+          mkdir -p deploy/frontend
+          cp -r src/frontend/. deploy/frontend/
+          cd deploy
+          zip -qr ../frontend.zip frontend
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy frontend files
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+        run: az webapp deploy -g "$RESOURCE_GROUP" -n sample-azure --src-path frontend.zip --type zip
