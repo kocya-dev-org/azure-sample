@@ -27,12 +27,13 @@ jobs:
       DESTROY_CONFIRMATION: ${{ inputs.confirm }}
     steps:
       - name: Require explicit confirmation
+        shell: bash
         run: |
-          if [ "$DESTROY_CONFIRMATION" != "DELETE" ]; then
+          if [[ "$DESTROY_CONFIRMATION" != "DELETE" ]]; then
             echo "Select DELETE to continue. No Azure resources were changed."
             exit 1
           fi
-          if [ -z "$AZURE_RESOURCE_GROUP" ]; then
+          if [[ -z "$AZURE_RESOURCE_GROUP" ]]; then
             echo "Repository variable AZURE_RESOURCE_GROUP is not configured."
             exit 1
           fi
@@ -44,112 +45,28 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Delete resources from the Flyingfish deployment
+      - name: Delete Flyingfish resources
         shell: bash
         run: |
           set -euo pipefail
 
-          deployment_name='flyingfish-dev'
-          deployment_outputs=$(az deployment group show \
+          deployment=$(az deployment group show \
             --resource-group "$AZURE_RESOURCE_GROUP" \
-            --name "$deployment_name" \
+            --name flyingfish-dev \
             --query properties.outputs \
             --output json)
-
-          output_value() {
-            jq -er --arg key "$1" '.[$key].value | strings | select(length > 0)' <<< "$deployment_outputs"
-          }
-
-          frontend_storage_name=$(output_value frontendStorageAccountName)
-          function_app_name=$(output_value functionAppName)
-          function_plan_name=$(output_value functionPlanName)
-          function_storage_name=$(output_value functionStorageAccountName)
-          cosmos_account_name=$(output_value cosmosAccountName)
-          data_storage_name=$(output_value dataStorageAccountName)
-          vnet_name=$(output_value vnetName)
-          cosmos_private_endpoint_name=$(output_value cosmosPrivateEndpointName)
-          blob_private_endpoint_name=$(output_value blobPrivateEndpointName)
-          cosmos_dns_zone_name=$(output_value cosmosPrivateDnsZoneName)
-          blob_dns_zone_name=$(output_value blobPrivateDnsZoneName)
-          dns_vnet_link_name=$(output_value privateDnsVnetLinkName)
-          log_analytics_name=$(output_value logAnalyticsWorkspaceName)
-          app_insights_name=$(output_value appInsightsName)
-
+          static_web_app_name=$(jq -er '.staticWebAppName.value' <<< "$deployment")
+          cosmos_name=$(jq -er '.cosmosAccountName.value' <<< "$deployment")
+          storage_name=$(jq -er '.dataStorageAccountName.value' <<< "$deployment")
           subscription_id=$(az account show --query id --output tsv)
+
           resource_id() {
             printf '/subscriptions/%s/resourceGroups/%s/providers/%s/%s' \
               "$subscription_id" "$AZURE_RESOURCE_GROUP" "$1" "$2"
           }
 
-          function_app_id=$(resource_id 'Microsoft.Web/sites' "$function_app_name")
-          function_storage_id=$(resource_id 'Microsoft.Storage/storageAccounts' "$function_storage_name")
-          data_storage_id=$(resource_id 'Microsoft.Storage/storageAccounts' "$data_storage_name")
-          cosmos_account_id=$(resource_id 'Microsoft.DocumentDB/databaseAccounts' "$cosmos_account_name")
-          function_principal_id=$(az functionapp identity show \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --name "$function_app_name" \
-            --query principalId \
-            --output tsv)
-
-          delete_role_assignments() {
-            local scope="$1"
-            local role_name="$2"
-            local assignment_ids
-            assignment_ids=$(az role assignment list \
-              --scope "$scope" \
-              --query "[?principalId=='${function_principal_id}' && roleDefinitionName=='${role_name}'].id" \
-              --output tsv)
-            if [ -n "$assignment_ids" ]; then
-              while IFS= read -r assignment_id; do
-                [ -z "$assignment_id" ] || az role assignment delete --ids "$assignment_id"
-              done <<< "$assignment_ids"
-            fi
-          }
-
-          echo "Removing role assignments for the Flyingfish Function App identity."
-          delete_role_assignments "$function_storage_id" 'Storage Blob Data Owner'
-          delete_role_assignments "$function_storage_id" 'Storage Queue Data Contributor'
-          delete_role_assignments "$function_storage_id" 'Storage Table Data Contributor'
-          delete_role_assignments "$data_storage_id" 'Storage Blob Data Contributor'
-
-          cosmos_role_assignment_ids=$(az cosmosdb sql role assignment list \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --account-name "$cosmos_account_name" \
-            --query "[?properties.principalId=='${function_principal_id}'].name" \
-            --output tsv)
-          if [ -n "$cosmos_role_assignment_ids" ]; then
-            while IFS= read -r assignment_id; do
-              [ -z "$assignment_id" ] || az cosmosdb sql role assignment delete \
-                --resource-group "$AZURE_RESOURCE_GROUP" \
-                --account-name "$cosmos_account_name" \
-                --role-assignment-id "$assignment_id" \
-                --yes
-            done <<< "$cosmos_role_assignment_ids"
-          fi
-
-          echo "Deleting frontend storage and private endpoints."
-          az resource delete --ids "$(resource_id 'Microsoft.Storage/storageAccounts' "$frontend_storage_name")"
-          az resource delete --ids "$(resource_id 'Microsoft.Network/privateEndpoints' "$cosmos_private_endpoint_name")"
-          az resource delete --ids "$(resource_id 'Microsoft.Network/privateEndpoints' "$blob_private_endpoint_name")"
-
-          echo "Deleting the Function App and its hosting plan."
-          az resource delete --ids "$function_app_id"
-          az resource delete --ids "$(resource_id 'Microsoft.Web/serverfarms' "$function_plan_name")"
-
-          echo "Deleting Cosmos DB and storage accounts."
-          az resource delete --ids "$cosmos_account_id"
-          az resource delete --ids "$data_storage_id"
-          az resource delete --ids "$function_storage_id"
-
-          echo "Deleting private DNS links, zones, and the VNet."
-          az resource delete --ids "$(resource_id 'Microsoft.Network/privateDnsZones/virtualNetworkLinks' "${cosmos_dns_zone_name}/${dns_vnet_link_name}")"
-          az resource delete --ids "$(resource_id 'Microsoft.Network/privateDnsZones/virtualNetworkLinks' "${blob_dns_zone_name}/${dns_vnet_link_name}")"
-          az resource delete --ids "$(resource_id 'Microsoft.Network/privateDnsZones' "$cosmos_dns_zone_name")"
-          az resource delete --ids "$(resource_id 'Microsoft.Network/privateDnsZones' "$blob_dns_zone_name")"
-          az resource delete --ids "$(resource_id 'Microsoft.Network/virtualNetworks' "$vnet_name")"
-
-          echo "Deleting Application Insights and Log Analytics."
-          az resource delete --ids "$(resource_id 'Microsoft.Insights/components' "$app_insights_name")"
-          az resource delete --ids "$(resource_id 'Microsoft.OperationalInsights/workspaces' "$log_analytics_name")"
-
-          echo "Flyingfish Bicep resources have been deleted. The resource group and deployment history were retained."
+          echo "Deleting the Static Web App, Cosmos DB account, and data storage account."
+          az resource delete --ids "$(resource_id 'Microsoft.Web/staticSites' "$static_web_app_name")"
+          az resource delete --ids "$(resource_id 'Microsoft.DocumentDB/databaseAccounts' "$cosmos_name")"
+          az resource delete --ids "$(resource_id 'Microsoft.Storage/storageAccounts' "$storage_name")"
+          echo "Flyingfish resources have been deleted. The resource group and deployment history were retained."

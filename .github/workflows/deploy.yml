@@ -16,8 +16,7 @@ on:
         options:
           - all
           - infra
-          - front
-          - back
+          - app
 
 jobs:
   changes:
@@ -76,83 +75,67 @@ jobs:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Deploy Bicep and remove legacy private endpoints
+      - name: Deploy infrastructure and configure API settings
         env:
           RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+        shell: bash
         run: |
-          az deployment group create -g "$RESOURCE_GROUP" -n flyingfish-dev -f infra/main.bicep -p infra/environments/dev.bicepparam
-          for resource in $(az network private-endpoint list -g "$RESOURCE_GROUP" --query "[?starts_with(name, 'pe-cosmos-') || starts_with(name, 'pe-stdata')].id" -o tsv); do
-            az resource delete --ids "$resource"
-          done
+          set -euo pipefail
+          deployment=$(az deployment group create \
+            --resource-group "$RESOURCE_GROUP" \
+            --name flyingfish-dev \
+            --template-file infra/main.bicep \
+            --parameters infra/environments/dev.bicepparam \
+            --output json)
 
-  deploy-backend:
+          static_web_app_name=$(jq -er '.properties.outputs.staticWebAppName.value' <<< "$deployment")
+          cosmos_name=$(jq -er '.properties.outputs.cosmosAccountName.value' <<< "$deployment")
+          storage_name=$(jq -er '.properties.outputs.dataStorageAccountName.value' <<< "$deployment")
+
+          cosmos_connection_string=$(az cosmosdb keys list \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$cosmos_name" \
+            --type connection-strings \
+            --query 'connectionStrings[0].connectionString' \
+            --output tsv)
+          blob_connection_string=$(az storage account show-connection-string \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$storage_name" \
+            --query connectionString \
+            --output tsv)
+
+          az staticwebapp appsettings set \
+            --name "$static_web_app_name" \
+            --setting-names \
+              "COSMOS_CONNECTION_STRING=$cosmos_connection_string" \
+              'COSMOS_DATABASE_ID=flyingfish' \
+              'COSMOS_CONTAINER_ID=records' \
+              "BLOB_CONNECTION_STRING=$blob_connection_string" \
+              'BLOB_CONTAINER_NAME=objects' \
+            --output none
+
+  deploy-static-web-app:
     needs: [changes, validate-infra, deploy-infrastructure]
     if: >-
       always() && !cancelled() &&
       needs.changes.result == 'success' &&
       needs.validate-infra.result != 'failure' &&
       needs.validate-infra.result != 'cancelled' &&
-      ((github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'back')) ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend == 'true')) &&
+      ((github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'app')) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      (needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.infra == 'true'))) &&
       (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Build and deploy the Static Web App and managed Functions API
+        uses: Azure/static-web-apps-deploy@v1
         with:
-          node-version: '22'
-      - run: |
-          cd src/api
-          npm ci
-          npm run build
-          npm prune --omit=dev
-          mkdir -p ../../deploy/api
-          cp package.json package-lock.json ../../deploy/api/
-          cp -r dist ../../deploy/api/
-          cp -r node_modules ../../deploy/api/
-          cd ../../deploy
-          zip -qr ../backend.zip api
-      - uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Deploy backend files
-        env:
-          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
-        run: az webapp deploy -g "$RESOURCE_GROUP" -n sample-azure --src-path backend.zip --type zip
-
-  deploy-frontend:
-    needs: [changes, validate-infra, deploy-infrastructure]
-    if: >-
-      always() && !cancelled() &&
-      needs.changes.result == 'success' &&
-      needs.validate-infra.result != 'failure' &&
-      needs.validate-infra.result != 'cancelled' &&
-      ((github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'front')) ||
-      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend == 'true')) &&
-      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-      - name: Package frontend under its own directory
-        run: |
-          mkdir -p deploy/frontend
-          cp -r src/frontend/. deploy/frontend/
-          cd deploy
-          zip -qr ../frontend.zip frontend
-      - uses: azure/login@v3
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Deploy frontend files
-        env:
-          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
-        run: az webapp deploy -g "$RESOURCE_GROUP" -n sample-azure --src-path frontend.zip --type zip
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: src/frontend
+          api_location: src/api
+          output_location: ''
+          api_build_command: npm run build

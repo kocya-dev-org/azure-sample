@@ -1,16 +1,8 @@
 import { app, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 
-function runJob(invocationPath: 'scheduled' | 'Manual', context: InvocationContext): void {
+function runJob(invocationPath: 'Manual', context: InvocationContext): void {
   context.info(invocationPath);
 }
-
-app.timer('scheduledJob', {
-  schedule: '0 0 0 * * *',
-  runOnStartup: false,
-  handler: async (_timer, context: InvocationContext): Promise<void> => {
-    runJob('scheduled', context);
-  },
-});
 
 app.http('runJobManually', {
   methods: ['POST'],

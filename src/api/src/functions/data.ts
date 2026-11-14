@@ -1,20 +1,14 @@
 import { CosmosClient, type Container } from '@azure/cosmos';
-import { DefaultAzureCredential } from '@azure/identity';
 import { BlobServiceClient, type ContainerClient } from '@azure/storage-blob';
 
-const credential = new DefaultAzureCredential();
-const cosmosClient = new CosmosClient({
-  endpoint: requiredSetting('Cosmos__endpoint'),
-  aadCredentials: credential,
-});
+const cosmosClient = new CosmosClient(requiredSetting('COSMOS_CONNECTION_STRING'));
 const cosmosContainer = cosmosClient
-  .database(requiredSetting('Cosmos__databaseId'))
-  .container(requiredSetting('Cosmos__containerId'));
+  .database(process.env.COSMOS_DATABASE_ID ?? 'flyingfish')
+  .container(process.env.COSMOS_CONTAINER_ID ?? 'records');
 
-const blobContainer = new BlobServiceClient(
-  requiredSetting('Storage__endpoint'),
-  credential,
-).getContainerClient(requiredSetting('Storage__containerName'));
+const blobContainer = BlobServiceClient
+  .fromConnectionString(requiredSetting('BLOB_CONNECTION_STRING'))
+  .getContainerClient(process.env.BLOB_CONTAINER_NAME ?? 'objects');
 
 function requiredSetting(name: string): string {
   const value = process.env[name];

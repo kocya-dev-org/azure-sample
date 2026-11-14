@@ -4,8 +4,8 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#101827">
-    <meta name="description" content="Azure Blob 静的サイト、Functions、Cosmos DB、Blob Storage のサンプルです。">
-    <title>Flyingfish | Azure サンプル AppService</title>
+    <meta name="description" content="Azure Static Web Apps、Functions、Cosmos DB、Blob Storage のサンプルです。">
+    <title>Flyingfish | Azure サンプル SWA</title>
     <style>
       :root {
         color-scheme: dark;
@@ -73,13 +73,13 @@
   </head>
   <body>
     <main>
-      <p class="eyebrow">Azure · Blob Static Website</p>
+      <p class="eyebrow">Azure · Static Web Apps</p>
       <h1>Flyingfish</h1>
-      <p class="intro">Bicep で構築した Azure Functions、Cosmos DB、非公開 Blob Storage の読み書きサンプルです。</p>
+      <p class="intro">SWA マネージド Functions、Cosmos DB、Blob Storage の読み書きサンプルです。</p>
 
       <section class="card" aria-labelledby="job-title">
-        <h2 id="job-title">定期実行 Function</h2>
-        <p>Functions の Timer Trigger は 5 分ごとに実行されます。手動実行するとログに <code>Manual</code> が記録されます。</p>
+        <h2 id="job-title">HTTP Function</h2>
+        <p>ボタンを押すと HTTP Trigger を実行し、ログに <code>Manual</code> が記録されます。</p>
         <button id="run-job" type="button">今すぐ実行</button>
       </section>
 
@@ -129,9 +129,8 @@
       </section>
 
         <p id="status" role="status" aria-live="polite"></p>
-        <footer>フロントエンドと Express API は App Service から配信します。</footer>
+        <footer>フロントエンドと Azure Functions API は Static Web Apps から配信します。</footer>
     </main>
-    <script src="config.js"></script>
     <script>
         const apiBaseUrl = '/api';
       const status = document.querySelector('#status');

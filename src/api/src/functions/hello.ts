@@ -6,7 +6,7 @@ app.http('hello', {
   route: 'hello',
   handler: async (): Promise<HttpResponseInit> => ({
     jsonBody: {
-      message: 'Functions API から応答しています。',
+      message: 'SWA マネージド Functions API から応答しています。',
       service: 'flyingfish-api',
     },
   }),

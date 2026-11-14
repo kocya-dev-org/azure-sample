@@ -2,22 +2,20 @@
   "name": "flyingfish-api",
   "version": "1.0.0",
   "private": true,
-  "description": "Flyingfish Express API",
-  "main": "dist/server.js",
+  "description": "Flyingfish Azure Functions API for Static Web Apps",
+  "main": "dist/src/functions/*.js",
   "engines": {
     "node": ">=22 <23"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/server.js"
+    "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@azure/cosmos": "^4.2.0",
-    "@azure/storage-blob": "^12.26.0",
-    "express": "^5.1.0"
+    "@azure/functions": "^4.7.2",
+    "@azure/storage-blob": "^12.26.0"
   },
   "devDependencies": {
-    "@types/express": "^5.0.3",
     "@types/node": "^22.0.0",
     "typescript": "^5.9.3"
   }
