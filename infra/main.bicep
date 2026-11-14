@@ -83,14 +83,13 @@ resource appSettings 'Microsoft.Web/sites/config@2022-03-01' = {
   parent: app
   name: 'appsettings'
   properties: {
-    'WEBSITE_NODE_DEFAULT_VERSION': '~22'
-    'SCM_DO_BUILD_DURING_DEPLOYMENT': 'false'
-    'COSMOS_CONNECTION_STRING': 'AccountEndpoint=${cosmosAccount.properties.documentEndpoint};AccountKey=${cosmosKeys};'
-    'COSMOS_DATABASE_ID': databaseName
-    'COSMOS_CONTAINER_ID': cosmosContainerName
-    'BLOB_CONNECTION_STRING': 'DefaultEndpointsProtocol=https;AccountName=${dataStorage.name};AccountKey=${storageKeys};EndpointSuffix=${environment().suffixes.storage}'
-    'BLOB_CONTAINER_NAME': blobContainerName
-    'FRONTEND_PATH': '/home/site/wwwroot/frontend'
+    SCM_DO_BUILD_DURING_DEPLOYMENT: 'false'
+    COSMOS_CONNECTION_STRING: 'AccountEndpoint=${cosmosAccount.properties.documentEndpoint};AccountKey=${cosmosKeys};'
+    COSMOS_DATABASE_ID: databaseName
+    COSMOS_CONTAINER_ID: cosmosContainerName
+    BLOB_CONNECTION_STRING: 'DefaultEndpointsProtocol=https;AccountName=${dataStorage.name};AccountKey=${storageKeys};EndpointSuffix=${environment().suffixes.storage}'
+    BLOB_CONTAINER_NAME: blobContainerName
+    FRONTEND_PATH: '/home/site/wwwroot/frontend'
   }
 }
 
@@ -100,7 +99,7 @@ resource webConfig 'Microsoft.Web/sites/config@2022-03-01' = {
   properties: {
     linuxFxVersion: 'NODE|22-lts'
     appCommandLine: 'node api/dist/server.js'
-    alwaysOn: true
+    alwaysOn: false
     ftpsState: 'Disabled'
     minTlsVersion: '1.2'
   }
