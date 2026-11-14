@@ -114,8 +114,51 @@ jobs:
               'BLOB_CONTAINER_NAME=objects' \
             --output none
 
+  configure-foundry-settings:
+    needs: [changes, deploy-infrastructure]
+    if: >-
+      always() && !cancelled() &&
+      needs.changes.result == 'success' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') &&
+      ((github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'infra' || inputs.target == 'app')) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      (needs.changes.outputs.backend == 'true' || needs.changes.outputs.infra == 'true')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Set Microsoft Foundry API settings
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          FOUNDRY_API_KEY: ${{ secrets.AZURE_AI_FOUNDRY_API_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$FOUNDRY_API_KEY" ]]; then
+            echo "Repository secret AZURE_AI_FOUNDRY_API_KEY is not configured."
+            exit 1
+          fi
+          static_web_app_name=$(az deployment group show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name flyingfish-dev \
+            --query properties.outputs.staticWebAppName.value \
+            --output tsv)
+          az staticwebapp appsettings set \
+            --name "$static_web_app_name" \
+            --setting-names \
+              "FOUNDRY_API_KEY=$FOUNDRY_API_KEY" \
+              'FOUNDRY_ENDPOINT=https://sample-app-foundary.openai.azure.com/openai/v1/' \
+              'FOUNDRY_MODEL=gpt-5-mini' \
+            --output none
+
   deploy-static-web-app:
-    needs: [changes, validate-infra, deploy-infrastructure]
+    needs: [changes, validate-infra, deploy-infrastructure, configure-foundry-settings]
     if: >-
       always() && !cancelled() &&
       needs.changes.result == 'success' &&
@@ -128,7 +171,8 @@ jobs:
       (github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'app')) ||
       (github.event_name == 'push' && github.ref == 'refs/heads/main' &&
       (needs.changes.outputs.frontend == 'true' || needs.changes.outputs.backend == 'true' || needs.changes.outputs.infra == 'true'))) &&
-      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') &&
+      (needs.configure-foundry-settings.result == 'success' || needs.configure-foundry-settings.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
       contents: read
