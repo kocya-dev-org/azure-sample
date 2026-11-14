@@ -7,6 +7,17 @@ on:
     types: [opened, synchronize, reopened]
     branches: [main]
   workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target (defaults to all)
+        type: choice
+        required: false
+        default: all
+        options:
+          - all
+          - infra
+          - front
+          - back
 
 jobs:
   changes:
@@ -34,7 +45,10 @@ jobs:
 
   validate-infra:
     needs: changes
-    if: github.event_name != 'pull_request' && (needs.changes.outputs.infra == 'true' || github.event_name == 'workflow_dispatch')
+    if: >-
+      github.event_name != 'pull_request' &&
+      (needs.changes.outputs.infra == 'true' ||
+      (github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'infra')))
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,7 +59,12 @@ jobs:
 
   deploy-infrastructure:
     needs: [changes, validate-infra]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.infra == 'true'
+    if: >-
+      always() && !cancelled() &&
+      needs.changes.result == 'success' &&
+      needs.validate-infra.result == 'success' &&
+      ((github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'infra')) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.infra == 'true'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -69,8 +88,12 @@ jobs:
   deploy-backend:
     needs: [changes, validate-infra, deploy-infrastructure]
     if: >-
-      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
-      needs.changes.outputs.backend == 'true' &&
+      always() && !cancelled() &&
+      needs.changes.result == 'success' &&
+      needs.validate-infra.result != 'failure' &&
+      needs.validate-infra.result != 'cancelled' &&
+      ((github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'back')) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.backend == 'true')) &&
       (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
@@ -105,8 +128,12 @@ jobs:
   deploy-frontend:
     needs: [changes, validate-infra, deploy-infrastructure]
     if: >-
-      github.event_name == 'push' && github.ref == 'refs/heads/main' &&
-      needs.changes.outputs.frontend == 'true' &&
+      always() && !cancelled() &&
+      needs.changes.result == 'success' &&
+      needs.validate-infra.result != 'failure' &&
+      needs.validate-infra.result != 'cancelled' &&
+      ((github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'front')) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.changes.outputs.frontend == 'true')) &&
       (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped')
     runs-on: ubuntu-latest
     permissions:
