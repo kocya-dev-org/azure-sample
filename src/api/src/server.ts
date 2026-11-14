@@ -16,7 +16,7 @@ const statusOf = (e: unknown) => typeof e === 'object' && e !== null && 'code' i
   typeof e === 'object' && e !== null && 'statusCode' in e ? Number(e.statusCode) : 500;
 
 api.get('/hello', (_req, res) => res.json({ message: 'Express API から応答しています。', service: 'flyingfish-api' }));
-api.get('/goodbye', (_req, res) => res.json({ message: 'goodbye' }));
+api.get('/goodbye', (_req, res) => res.json({ message: 'goodbyeコメント' }));
 api.post('/jobs/run', (_req, res) => res.json({ message: 'ジョブを手動実行しました。', invocationPath: 'Manual' }));
 api.get('/items', async (_req, res) => {
   try { res.json((await cosmos.items.query('SELECT * FROM c').fetchAll()).resources); }
