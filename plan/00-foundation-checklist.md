@@ -27,7 +27,7 @@ Node.js 24 / React SPA (Vite) / oxlint・oxfmt / vitest を導入し、SWA マ�
 
 ## Step 3: ルート workspace とツールチェーン
 
-- [ ] ルート `package.json`（npm workspaces: `src/frontend`, `src/api`）と lint / format / test 設定を追加する
+- [x] ルート `package.json`（npm workspaces: `src/frontend`, `src/api`）と lint / format / test 設定を追加する
   - 対象ファイル: `package.json`, `package-lock.json`, `.node-version`, `.oxlintrc.json`, oxfmt 設定, `vitest.config.ts`, `.gitignore`、削除: `src/api/package-lock.json`
   - 完了条件: Node 24 で `npm ci` が成功し、`format:check` / `lint` が実行できる。lockfile がルートに一本化されている。
 

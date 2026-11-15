@@ -1,0 +1,24 @@
+{
+  "name": "flyingfish",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "src/api"
+  ],
+  "engines": {
+    "node": ">=24.15 <25"
+  },
+  "scripts": {
+    "lint": "oxlint",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "oxfmt": "^0.78.0",
+    "oxlint": "^1.93.0",
+    "vitest": "^5.1.0"
+  }
+}
