@@ -60,6 +60,12 @@ func start
 - `FOUNDRY_ENDPOINT`（必須）
 - `FOUNDRY_MODEL`（任意。既定 `gpt-5-mini`）
 
+MVP の実装後は、次のように変わります（[MVP チェックリスト](../plan/01-mvp-checklist.md)）。
+
+- `COSMOS_CONTAINER_ID` は使わなくなります（コンテナー名はコードの定数）。
+- `BLOB_CONNECTION_STRING` と `BLOB_CONTAINER_NAME` は使わなくなります。
+- Phase 2 で `ISSUE_GITHUB_TOKEN`（任意）が加わります。GitHub Issue 起票用の fine-grained personal access token で、権限は対象リポジトリの Issues: Read and write だけにします。未設定でも起票以外の機能は動きます。本番環境とプレビュー環境では、リポジトリ secret `ISSUE_GITHUB_TOKEN` に登録します（[ADR 0007](../plan/decisions/0007-github-issue-token.md)）。
+
 `foundry.ts` はモジュール読み込み時に `FOUNDRY_API_KEY` と `FOUNDRY_ENDPOINT` を検査します。未設定のまま `hello.ts` が読み込まれると例外になります。`data.ts` も同様に `COSMOS_CONNECTION_STRING` と `BLOB_CONNECTION_STRING` を検査します。
 
 ## API のテスト

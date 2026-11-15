@@ -54,6 +54,17 @@ Cosmos DB と Blob の設定は GitHub Actions のインフラデプロイ時に
 
 `data.ts`（Cosmos DB / Blob クライアント）と `foundry.ts`（Foundry クライアント）は共通モジュールで、ルートを持ちません。
 
+## MVP での変更予定
+
+[MVP チェックリスト](../plan/01-mvp-checklist.md)の実装で、次のように変わります。サービス構成（SWA Free ＋ マネージド Functions、Cosmos DB Free Tier、Blob Storage、Microsoft Foundry）は変えません。
+
+- **Cosmos DB**: `records` を廃止し、データベース `flyingfish` にコンテナー `products`・`proposals`・`scoredItems`・`backlogs` を追加します（[ADR 0004](../plan/decisions/0004-cosmos-containers.md)、[データモデル](./data-model.md)）。アプリケーション設定 `COSMOS_CONTAINER_ID` は廃止します。
+- **Blob Storage**: リソースは残しますが、MVP では使いません。Blob 用の API は削除します。
+- **API**: 上のサンプル API は削除し、[API 仕様](./api.md)のエンドポイントに置き換えます。共通モジュールは `src/api/src/lib/` に移し、設定は初めて使うときに検査します。
+- **判定コメント**: Foundry の応答をストリームで中継します。SWA で使えない場合はポーリングに切り替えます（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)）。
+- **アプリケーション設定の追加（Phase 2）**: `ISSUE_GITHUB_TOKEN`（GitHub Issue 起票用。リポジトリ secret `ISSUE_GITHUB_TOKEN` から設定）。未設定でも起票以外の機能は動きます（[ADR 0007](../plan/decisions/0007-github-issue-token.md)）。
+- **認証**: `authenticated` ロールのままです。ログインできる人なら誰でも全データを扱えるリスクを、PoC として受け入れています（ADR 0007）。
+
 ## 土台構築後の変更点
 
 [土台構築チェックリスト](../plan/00-foundation-checklist.md)の完了後は次のようになります。
