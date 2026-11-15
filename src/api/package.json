@@ -5,13 +5,12 @@
   "description": "Flyingfish Azure Functions API for Static Web Apps",
   "main": "dist/src/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@azure/cosmos": "^4.2.0",
     "@azure/functions": "^4.7.2",
-    "@azure/storage-blob": "^12.26.0",
     "openai": "^5.20.0"
   },
   "devDependencies": {

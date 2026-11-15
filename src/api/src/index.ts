@@ -6,8 +6,3 @@ import { app } from '@azure/functions';
 app.setup({ enableHttpStream: true });
 
 import './functions/diag-stream';
-import './functions/goodbye';
-import './functions/hello';
-import './functions/items';
-import './functions/blobs';
-import './functions/jobs';

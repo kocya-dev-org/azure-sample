@@ -41,7 +41,7 @@
 
 ## Phase 1-2: API の基盤整理
 
-- [ ] サンプル API を削除し、共通モジュールを `src/api/src/lib/` に作る
+- [x] サンプル API を削除し、共通モジュールを `src/api/src/lib/` に作る
   - 対象ファイル: 削除 `src/api/src/functions/{hello,goodbye,goodbye.test,items,blobs,jobs,data,foundry}.ts`。新規 `src/api/src/lib/{cosmos,foundry,http,rice,prompts}.ts` とテスト。`src/api/tsconfig*.json`
   - 完了条件:
     - 共通モジュールは import した時点で設定を検査せず、初めて使うときにクライアントを生成する。
