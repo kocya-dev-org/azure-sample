@@ -33,7 +33,7 @@ Node.js 24 / React SPA (Vite) / oxlint・oxfmt / vitest を導入し、SWA マ�
 
 ## Step 4: フロントエンド（最小雛形）
 
-- [ ] `src/frontend/` を Vite + React + TypeScript の最小雛形に置換する
+- [x] `src/frontend/` を Vite + React + TypeScript の最小雛形に置換する
   - 対象ファイル: `src/frontend/{package.json,vite.config.ts,tsconfig.json,index.html,src/*}`, `src/frontend/public/staticwebapp.config.json`（移動）
   - 完了条件: `/api/goodbye`（外部依存なし）を呼んで結果を表示でき、`src/App.test.tsx` が通る。認証ルート・401 リダイレクトが維持され、SPA 用 `navigationFallback`（`/api/*` と静的アセットは除外）が設定されている。旧 `index.html` は削除されている。
 

@@ -2,6 +2,7 @@
   "name": "flyingfish",
   "private": true,
   "workspaces": [
+    "src/frontend",
     "src/api"
   ],
   "type": "module",
