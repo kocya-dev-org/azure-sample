@@ -1,39 +1,41 @@
-import { useState } from 'react';
+import { Layout } from './components/Layout';
+import { ProductProvider } from './context/ProductContext';
+import { matchPath, Redirect, RouterProvider, useRouter } from './router';
 
-type Status = 'idle' | 'loading' | 'success' | 'error';
+function Placeholder({ title }: { title: string }) {
+  return (
+    <section>
+      <h1>{title}</h1>
+      <p>準備中です。</p>
+    </section>
+  );
+}
+
+function Routes() {
+  const { path } = useRouter();
+
+  if (path === '/') return <Redirect to="/proposals" />;
+  if (path === '/proposals') return <Placeholder title="提案" />;
+  if (path === '/proposals/new') return <Placeholder title="提案の新規登録" />;
+  if (matchPath('/proposals/:id/edit', path)) return <Placeholder title="提案の編集" />;
+  if (path === '/backlogs') return <Placeholder title="バックログ" />;
+  if (matchPath('/backlogs/:id', path)) return <Placeholder title="バックログ詳細" />;
+  if (path === '/products') return <Placeholder title="プロダクト情報" />;
+  return (
+    <section>
+      <h1>ページが見つかりません</h1>
+    </section>
+  );
+}
 
 export default function App() {
-  const [status, setStatus] = useState<Status>('idle');
-  const [message, setMessage] = useState('');
-
-  async function callApi() {
-    setStatus('loading');
-    try {
-      const response = await fetch('/api/goodbye');
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const data = (await response.json()) as { message: string };
-      setMessage(data.message);
-      setStatus('success');
-    } catch {
-      setStatus('error');
-    }
-  }
-
   return (
-    <main>
-      <h1>Flyingfish</h1>
-      <button type="button" onClick={callApi} disabled={status === 'loading'}>
-        API を呼び出す
-      </button>
-      {status === 'loading' && <p>読み込み中…</p>}
-      {status === 'success' && <p>{message}</p>}
-      {status === 'error' && (
-        <p className="error" role="alert">
-          API の呼び出しに失敗しました
-        </p>
-      )}
-    </main>
+    <RouterProvider>
+      <ProductProvider>
+        <Layout>
+          <Routes />
+        </Layout>
+      </ProductProvider>
+    </RouterProvider>
   );
 }

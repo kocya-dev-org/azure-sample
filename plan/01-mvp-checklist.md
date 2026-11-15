@@ -80,7 +80,7 @@
 
 ## Phase 1-5: フロントエンド（Must）
 
-- [ ] レイアウト・ルーター・プロダクト選択
+- [x] レイアウト・ルーター・プロダクト選択
   - 対象ファイル: `src/frontend/src/{App.tsx,App.css,router.tsx}`, `src/frontend/src/context/ProductContext.tsx`, `src/frontend/src/components/*`, `src/frontend/src/api/client.ts`
   - 完了条件: 左メニュー（提案・バックログ・プロダクト情報）とヘッダー右端のプロダクト選択が表示される。選択が localStorage に保存される。`/` が `/proposals` にリダイレクトされる。
 - [ ] プロダクト情報画面
