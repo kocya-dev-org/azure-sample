@@ -7,3 +7,4 @@ app.setup({ enableHttpStream: true });
 
 import './functions/diag-stream';
 import './functions/products';
+import './functions/review';

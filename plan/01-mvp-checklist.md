@@ -65,7 +65,7 @@
 - [x] プロダクト API
   - 対象ファイル: `src/api/src/functions/products.ts`, `products.test.ts`
   - 完了条件: [API 仕様](../docs/api.md)のとおり一覧・作成・更新・削除ができる。削除時に紐づくデータもまとめて削除する。`repository` の形式を検証する。
-- [ ] 判定 API（ストリーム）
+- [x] 判定 API（ストリーム）
   - 対象ファイル: `src/api/src/functions/review.ts`, `review.test.ts`, `src/api/src/lib/prompts.ts`
   - 完了条件: Phase 1-1 で決めた方式でコメントを返す。reasoning effort が low で、出力上限トークン数が設定されている。Foundry の失敗時は 502 と固定メッセージを返す。
 - [ ] 提案 API（スコアリング）
