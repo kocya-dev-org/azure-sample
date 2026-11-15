@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "description": "Flyingfish Azure Functions API for Static Web Apps",
-  "main": "dist/src/functions/*.js",
+  "main": "dist/src/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json"
