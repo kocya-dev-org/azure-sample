@@ -13,7 +13,13 @@ param cosmosAccountName string = 'cosmos-${uniqueString(resourceGroup().id)}'
 param staticWebAppName string = 'swa-flyingfish-${uniqueString(resourceGroup().id)}'
 
 var databaseName = 'flyingfish'
-var cosmosContainerName = 'records'
+@description('Cosmos DB のコンテナー定義。パーティションキーと TTL（-1 は無期限、null は無効）。')
+var cosmosContainers = [
+  { name: 'products', partitionKey: '/id', defaultTtl: null }
+  { name: 'proposals', partitionKey: '/productId', defaultTtl: -1 }
+  { name: 'scoredItems', partitionKey: '/productId', defaultTtl: null }
+  { name: 'backlogs', partitionKey: '/productId', defaultTtl: null }
+]
 var blobContainerName = 'objects'
 
 resource staticWebApp 'Microsoft.Web/staticSites@2024-04-01' = {
@@ -77,13 +83,22 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2024
     options: { throughput: 400 }
   }
 }
-resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = {
-  parent: cosmosDatabase
-  name: cosmosContainerName
-  properties: {
-    resource: { id: cosmosContainerName, partitionKey: { paths: ['/id'], kind: 'Hash' } }
+@batchSize(1)
+resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2024-05-15' = [
+  for container in cosmosContainers: {
+    parent: cosmosDatabase
+    name: container.name
+    properties: {
+      resource: union(
+        {
+          id: container.name
+          partitionKey: { paths: [container.partitionKey], kind: 'Hash', version: 2 }
+        },
+        container.defaultTtl == null ? {} : { defaultTtl: container.defaultTtl }
+      )
+    }
   }
-}
+]
 
 output staticWebAppName string = staticWebApp.name
 output staticWebAppUrl string = 'https://${staticWebApp.properties.defaultHostname}'

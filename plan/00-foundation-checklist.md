@@ -60,8 +60,5 @@ Node.js 24 / React SPA (Vite) / oxlint・oxfmt / vitest を導入し、SWA マ�
 
 ## 後続タスク
 
-- [ ] 旧 `index.html` の 3 画面を React に移植する
-  - HTTP Function 呼び出し画面（`/api/jobs/run` など）
-  - Cosmos DB レコード画面（`/api/items`）
-  - Blob オブジェクト画面（`/api/blobs/{name}`）
+- ~~旧 `index.html` の 3 画面を React に移植する~~ → **廃止**（[ADR 0003](./decisions/0003-mvp-scope.md)）。MVP の実装（[MVP チェックリスト](./01-mvp-checklist.md)）に置き換えた。
 - [ ] `docs/architecture.drawio` を React SPA と CI 事前ビルド方式に合わせて更新する
