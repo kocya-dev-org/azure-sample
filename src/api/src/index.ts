@@ -6,3 +6,4 @@ import { app } from '@azure/functions';
 app.setup({ enableHttpStream: true });
 
 import './functions/diag-stream';
+import './functions/products';

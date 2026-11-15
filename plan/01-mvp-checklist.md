@@ -62,7 +62,7 @@
 
 ## Phase 1-4: API ハンドラー（Must）
 
-- [ ] プロダクト API
+- [x] プロダクト API
   - 対象ファイル: `src/api/src/functions/products.ts`, `products.test.ts`
   - 完了条件: [API 仕様](../docs/api.md)のとおり一覧・作成・更新・削除ができる。削除時に紐づくデータもまとめて削除する。`repository` の形式を検証する。
 - [ ] 判定 API（ストリーム）
