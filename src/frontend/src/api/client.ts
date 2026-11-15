@@ -95,6 +95,19 @@ export type IssueResult =
 
 export const MAX_ISSUES_PER_REQUEST = 10;
 
+export interface MonthlyCount {
+  month: string;
+  proposals: number;
+  issues: number;
+  done: number;
+}
+
+export interface Dashboard {
+  totals: { proposals: number; issues: number; done: number };
+  monthly: MonthlyCount[];
+  githubEnabled: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -159,6 +172,9 @@ export const api = {
     request<{ results: IssueResult[] }>('POST', `/products/${enc(productId)}/issues`, {
       itemIds,
     }),
+
+  getDashboard: (productId: string) =>
+    request<Dashboard>('GET', `/products/${enc(productId)}/dashboard`),
 
   updateItemStatus: (productId: string, id: string, status: ItemStatus) =>
     request<{ id: string; status: ItemStatus; doneAt: string | null }>(

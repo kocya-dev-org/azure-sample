@@ -12,3 +12,4 @@ import './functions/proposals';
 import './functions/backlogs';
 import './functions/items';
 import './functions/issues';
+import './functions/dashboard';

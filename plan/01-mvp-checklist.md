@@ -118,7 +118,7 @@
     - トークンが未設定なら 503 を返し、画面の「Issue 起票」ボタンを無効にして理由を表示する。
     - ワークフローは secret `ISSUE_GITHUB_TOKEN` をアプリケーション設定に渡す。secret が空なら警告を出して飛ばす。
     - トークンがなくても `npm test` が通る（GitHub API はモックする）。
-- [ ] ダッシュボード
+- [x] ダッシュボード
   - 対象ファイル: `src/api/src/functions/dashboard.ts` とテスト, `src/frontend/src/pages/Dashboard.tsx`, `router.tsx`, メニュー
   - 完了条件: メニューの先頭に「ダッシュボード」があり、`/` で開く。現在の提案数・Issue 起票数・実装済み数と、直近 6 か月の月別推移が棒グラフ（CSS か SVG）で表示される。`githubEnabled` を返す。
 

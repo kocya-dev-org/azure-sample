@@ -2,10 +2,11 @@ import { Layout } from './components/Layout';
 import { ProductProvider, useProducts } from './context/ProductContext';
 import { BacklogDetailPage } from './pages/BacklogDetail';
 import { BacklogsPage } from './pages/Backlogs';
+import { DashboardPage } from './pages/Dashboard';
 import { ProposalFormPage } from './pages/ProposalForm';
 import { ProposalsPage } from './pages/Proposals';
 import { ProductsPage } from './pages/Products';
-import { matchPath, Redirect, RouterProvider, useRouter } from './router';
+import { matchPath, RouterProvider, useRouter } from './router';
 
 function Routes() {
   const { path } = useRouter();
@@ -14,7 +15,7 @@ function Routes() {
   const edit = matchPath('/proposals/:id/edit', path);
   const backlog = matchPath('/backlogs/:id', path);
 
-  if (path === '/') return <Redirect to="/proposals" />;
+  if (path === '/') return <DashboardPage key={key} />;
   if (path === '/proposals') return <ProposalsPage key={key} />;
   if (path === '/proposals/new') return <ProposalFormPage key={key} />;
   if (edit) return <ProposalFormPage key={key} proposalId={edit.id} />;

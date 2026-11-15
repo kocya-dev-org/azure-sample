@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import App from './App';
 import { mockFetch, PRODUCT } from './test/fetchMock';
@@ -9,15 +9,15 @@ beforeEach(() => {
 });
 
 describe('App', () => {
-  it('/ を提案一覧にリダイレクトし、メニューを上から順に表示する', async () => {
+  it('/ でダッシュボードを開き、メニューを上から順に表示する', async () => {
     mockFetch({ 'GET /api/products': [PRODUCT] });
     render(<App />);
 
-    await waitFor(() => expect(window.location.pathname).toBe('/proposals'));
+    expect(await screen.findByRole('heading', { name: 'ダッシュボード' })).toBeInTheDocument();
     const links = within(screen.getByRole('navigation', { name: 'メニュー' }))
       .getAllByRole('link')
       .map((link) => link.textContent);
-    expect(links).toEqual(['提案', 'バックログ', 'プロダクト情報']);
+    expect(links).toEqual(['ダッシュボード', '提案', 'バックログ', 'プロダクト情報']);
   });
 
   it('ヘッダーで選んだプロダクトを保存する', async () => {

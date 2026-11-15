@@ -3,6 +3,7 @@ import { useProducts } from '../context/ProductContext';
 import { Link, useRouter } from '../router';
 
 const MENU = [
+  { to: '/', label: 'ダッシュボード' },
   { to: '/proposals', label: '提案' },
   { to: '/backlogs', label: 'バックログ' },
   { to: '/products', label: 'プロダクト情報' },
@@ -37,7 +38,8 @@ function SideMenu() {
     <nav className="side-menu" aria-label="メニュー">
       <ul>
         {MENU.map((item) => {
-          const active = path === item.to || path.startsWith(`${item.to}/`);
+          const active =
+            item.to === '/' ? path === '/' : path === item.to || path.startsWith(`${item.to}/`);
           return (
             <li key={item.to}>
               <Link
