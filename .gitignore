@@ -4,3 +4,4 @@ src/api/dist/
 node_modules/
 src/frontend/dist/
 coverage/
+.deploy/

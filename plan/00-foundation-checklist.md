@@ -45,7 +45,7 @@ Node.js 24 / React SPA (Vite) / oxlint・oxfmt / vitest を導入し、SWA マ�
 
 ## Step 6: CI/CD
 
-- [ ] `verify` ジョブを追加し、ビルド済み成果物を SWA にアップロードする方式に変更する
+- [x] `verify` ジョブを追加し、ビルド済み成果物を SWA にアップロードする方式に変更する
   - 対象ファイル: `.github/workflows/deploy.yml`
   - 完了条件: PR / push で `verify`（`format:check` → `lint` → `typecheck` → `test` → `build`）が実行され、`deploy-static-web-app` の前提になっている。`skip_app_build: true` / `skip_api_build: true` で動作し、paths-filter にルート設定ファイルが追加されている。インフラ系ジョブは変更していない。
 

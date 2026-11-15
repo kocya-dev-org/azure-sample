@@ -59,6 +59,6 @@ Cosmos DB と Blob の設定は GitHub Actions のインフラデプロイ時に
 [土台構築チェックリスト](../plan/00-foundation-checklist.md)の完了後は次のようになります。
 
 - フロントエンドは React + Vite の SPA になります。ビルド成果物は `src/frontend/dist/` です。`staticwebapp.config.json` は `src/frontend/public/` に置き、SPA 用の `navigationFallback` を追加します。
-- CI（GitHub Actions、Node.js 24）でフロントエンドと API を事前にビルドし、`Azure/static-web-apps-deploy` に `skip_app_build: true` と `skip_api_build: true` を指定してビルド済み成果物をアップロードします。SWA 側のビルド (Oryx) は使いません。
+- CI（GitHub Actions、Node.js 24）でフロントエンドと API を事前にビルドし、`Azure/static-web-apps-deploy` に `skip_app_build: true` と `skip_api_build: true` を指定してビルド済み成果物をアップロードします。SWA 側のビルド (Oryx) は使いません。API は `npm ci --omit=dev --workspace src/api --install-strategy=nested` で本番依存だけを `src/api/node_modules` に入れ直し、`dist/`・`host.json`・`package.json` と合わせて `.deploy/api` にステージングしてからアップロードします（テストファイルが含まれていないこともこの段階で検査します）。
 - API 実行ランタイムは `apiRuntime` で指定します。`node:24` が使えない場合は API のみ `node:22` とします（[ADR 0001](../plan/decisions/0001-node24-on-managed-functions.md)）。
 - インフラ（Bicep）のリソース構成は変更しません。
