@@ -24,10 +24,12 @@
 
 ## 検証項目
 
-- [ ] PR プレビュー環境へのデプロイが成功する（`apiRuntime: node:24`）
+- [x] PR プレビュー環境へのデプロイが成功する（`apiRuntime: node:24`）→ **失敗**（PR #11）
 - [ ] プレビュー環境で `/api/goodbye` が 200 を返す
 - [ ] 不可の場合、`node:22` に切り替えて同じ確認が通る
 
 ## 結果・影響
 
-検証後に記入し、状態を「承認」に更新する。
+- 2026-11-15 PR #11: `verify` ジョブは Node.js 24.22.2 で成功。`apiRuntime: node:24` のデプロイは `Azure/static-web-apps-deploy` が `Cannot deploy to the function app because Function language info isn't provided.` で失敗した（`node:24` が API ランタイムとして認識されない）。
+- 決定 3 に従い、API の実行ランタイムを `node:22` に切り替えた（`staticwebapp.config.json` の `apiRuntime`、`src/api` の `engines: >=22.12 <25`、`@types/node` 22 系）。開発・CI ビルドは Node.js 24 のまま。
+- `node:22` でのプレビューデプロイ結果を確認後、状態を「承認」に更新する。
