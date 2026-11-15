@@ -16,6 +16,8 @@ const backlog = {
 
 const detail = {
   ...backlog,
+  githubEnabled: false,
+  hasRepository: true,
   items: [
     {
       ...backlog.items[0],
@@ -109,6 +111,51 @@ describe('バックログ', () => {
 
     await waitFor(() => expect(select).toHaveValue('done'));
     expect(patched).toHaveBeenCalledWith({ status: 'done' });
+  });
+
+  it('GitHub 連携が未設定なら Issue 起票ボタンを無効にして理由を表示する', async () => {
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/backlogs/b1': detail,
+    });
+    openAt('/backlogs/b1');
+
+    expect(await screen.findByText(/GitHub 連携が未設定/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Issue 起票' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: '提案A を選択' })).toBeDisabled();
+  });
+
+  it('選択した項目を Issue として起票し、リンクを表示する', async () => {
+    const issued = vi.fn<(body: unknown) => Response>(() =>
+      json({
+        results: [
+          {
+            itemId: 'a1',
+            result: 'created',
+            issue: { number: 12, url: 'https://github.com/org/repo/issues/12', createdAt: 'x' },
+          },
+        ],
+      }),
+    );
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/backlogs/b1': { ...detail, githubEnabled: true },
+      'POST /api/products/p1/issues': issued,
+    });
+    openAt('/backlogs/b1');
+
+    const button = await screen.findByRole('button', { name: 'Issue 起票' });
+    expect(button).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox', { name: '提案A を選択' }));
+    fireEvent.click(button);
+
+    expect(await screen.findByRole('link', { name: '#12' })).toHaveAttribute(
+      'href',
+      'https://github.com/org/repo/issues/12',
+    );
+    expect(issued).toHaveBeenCalledWith({ itemIds: ['a1'] });
+    expect(screen.getByRole('status')).toHaveTextContent('起票 1 件');
+    expect(screen.getByRole('checkbox', { name: '提案A を選択' })).toBeDisabled();
   });
 
   it('開始日が終了日より後なら作成しない', async () => {

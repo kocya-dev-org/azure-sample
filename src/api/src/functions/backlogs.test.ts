@@ -119,5 +119,6 @@ describe('getBacklogHandler', () => {
     // スナップショットのスコアは変えない
     expect(items[0]).toMatchObject({ riceScore: 5, status: 'done', deleted: false });
     expect(items[1]).toMatchObject({ deleted: true, status: null });
+    expect(result.jsonBody).toMatchObject({ githubEnabled: false, hasRepository: false });
   });
 });

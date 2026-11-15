@@ -4,7 +4,9 @@ import {
   errorMessage,
   type BacklogDetail,
   type BacklogDetailEntry,
+  type IssueResult,
   type ItemStatus,
+  MAX_ISSUES_PER_REQUEST,
 } from '../api/client';
 import { ErrorMessage, formatDate, formatScore, NoProductSelected } from '../components/common';
 import { useProducts } from '../context/ProductContext';
@@ -37,6 +39,9 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
   const [backlog, setBacklog] = useState<BacklogDetail | null>(null);
   const [error, setError] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [checked, setChecked] = useState<Set<string>>(new Set());
+  const [issuing, setIssuing] = useState(false);
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     if (!productId) return;
@@ -82,13 +87,60 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
     }
   }
 
-  const toggle = (id: string) =>
-    setExpanded((current) => {
+  async function createIssues() {
+    if (!productId) return;
+    setIssuing(true);
+    setError('');
+    setNotice('');
+    try {
+      const { results } = await api.createIssues(productId, [...checked]);
+      const issues = new Map(
+        results.flatMap((r) =>
+          r.result === 'created' || r.result === 'skipped' ? [[r.itemId, r.issue]] : [],
+        ),
+      );
+      setBacklog(
+        (current) =>
+          current && {
+            ...current,
+            items: current.items.map((item) =>
+              issues.has(item.scoredItemId)
+                ? { ...item, issue: issues.get(item.scoredItemId) ?? null }
+                : item,
+            ),
+          },
+      );
+      const count = (kind: IssueResult['result']) =>
+        results.filter((r) => r.result === kind).length;
+      setNotice(
+        `起票 ${count('created')} 件、起票済みのためスキップ ${count('skipped')} 件、失敗 ${count('failed') + count('not_found')} 件`,
+      );
+      setChecked(new Set());
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setIssuing(false);
+    }
+  }
+
+  const toggleIn = (setter: typeof setExpanded) => (id: string) =>
+    setter((current) => {
       const next = new Set(current);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
+  const toggle = toggleIn(setExpanded);
+  const toggleChecked = toggleIn(setChecked);
+
+  const issueDisabledReason = !backlog
+    ? ''
+    : !backlog.githubEnabled
+      ? 'GitHub 連携が未設定のため、Issue を起票できません。'
+      : !backlog.hasRepository
+        ? 'プロダクト情報にリポジトリが登録されていないため、Issue を起票できません。'
+        : '';
+  const canIssue = !!backlog && !issueDisabledReason;
 
   return (
     <section>
@@ -96,7 +148,27 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
         <Link to="/backlogs">← バックログ一覧</Link>
       </p>
       <h1>バックログ詳細</h1>
+      {backlog && (
+        <div className="toolbar">
+          <button
+            type="button"
+            className="primary"
+            onClick={createIssues}
+            disabled={
+              !canIssue || checked.size === 0 || checked.size > MAX_ISSUES_PER_REQUEST || issuing
+            }
+          >
+            {issuing ? '起票中…' : 'Issue 起票'}
+          </button>
+          {issueDisabledReason && <span className="muted">{issueDisabledReason}</span>}
+        </div>
+      )}
       <ErrorMessage>{error}</ErrorMessage>
+      {notice && (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      )}
       {!backlog ? (
         !error && <p className="muted">読み込み中…</p>
       ) : (
@@ -111,11 +183,15 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
             <table className="table">
               <thead>
                 <tr>
+                  <th>
+                    <span className="visually-hidden">選択</span>
+                  </th>
                   <th className="number">順位</th>
                   <th>項目名</th>
                   <th className="number">RICE スコア</th>
                   <th className="number">戦略合致度</th>
                   <th>実装状況</th>
+                  <th>Issue</th>
                   <th>根拠</th>
                 </tr>
               </thead>
@@ -125,6 +201,15 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
                   return (
                     <Fragment key={entry.scoredItemId}>
                       <tr>
+                        <td>
+                          <input
+                            type="checkbox"
+                            aria-label={`${entry.title} を選択`}
+                            checked={checked.has(entry.scoredItemId)}
+                            disabled={!canIssue || entry.deleted || !!entry.issue}
+                            onChange={() => toggleChecked(entry.scoredItemId)}
+                          />
+                        </td>
                         <td className="number">{entry.rank}</td>
                         <td>
                           {entry.title}
@@ -147,6 +232,15 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
                           )}
                         </td>
                         <td>
+                          {entry.issue ? (
+                            <a href={entry.issue.url} target="_blank" rel="noreferrer">
+                              #{entry.issue.number}
+                            </a>
+                          ) : (
+                            <span className="muted">—</span>
+                          )}
+                        </td>
+                        <td>
                           <button
                             type="button"
                             className="link"
@@ -159,7 +253,7 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
                       </tr>
                       {open && (
                         <tr className="detail-row">
-                          <td colSpan={6}>
+                          <td colSpan={8}>
                             <Rationale entry={entry} />
                           </td>
                         </tr>

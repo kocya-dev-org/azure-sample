@@ -111,7 +111,7 @@
 - [x] 実装状況の編集
   - 対象ファイル: `src/api/src/functions/items.ts`（`PATCH`）とテスト, `src/frontend/src/pages/BacklogDetail.tsx`
   - 完了条件: 詳細画面で未対応と実装済みを切り替えられ、`doneAt` が記録される。
-- [ ] GitHub Issue の起票
+- [x] GitHub Issue の起票
   - 対象ファイル: `src/api/src/lib/github.ts`, `src/api/src/functions/issues.ts` とテスト, `src/frontend/src/pages/BacklogDetail.tsx`, `.github/workflows/deploy.yml`
   - 完了条件:
     - チェックボックスで選んだ項目を `fetch` で起票し、番号と URL を `scoredItems.issue` に保存する。起票済みの項目はスキップする。

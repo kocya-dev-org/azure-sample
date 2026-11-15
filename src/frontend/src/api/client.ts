@@ -85,7 +85,15 @@ export interface BacklogDetailEntry extends BacklogEntry {
 
 export interface BacklogDetail extends Omit<Backlog, 'items'> {
   items: BacklogDetailEntry[];
+  githubEnabled: boolean;
+  hasRepository: boolean;
 }
+
+export type IssueResult =
+  | { itemId: string; result: 'created' | 'skipped'; issue: IssueRef }
+  | { itemId: string; result: 'not_found' | 'failed' };
+
+export const MAX_ISSUES_PER_REQUEST = 10;
 
 export class ApiError extends Error {
   constructor(
@@ -146,6 +154,11 @@ export const api = {
     request<Backlog>('POST', `/products/${enc(productId)}/backlogs`, range),
   getBacklog: (productId: string, id: string) =>
     request<BacklogDetail>('GET', `/products/${enc(productId)}/backlogs/${enc(id)}`),
+
+  createIssues: (productId: string, itemIds: string[]) =>
+    request<{ results: IssueResult[] }>('POST', `/products/${enc(productId)}/issues`, {
+      itemIds,
+    }),
 
   updateItemStatus: (productId: string, id: string, status: ItemStatus) =>
     request<{ id: string; status: ItemStatus; doneAt: string | null }>(

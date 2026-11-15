@@ -180,6 +180,27 @@ jobs:
               'FOUNDRY_ENDPOINT=https://sample-app-foundary.openai.azure.com/openai/v1/' \
               'FOUNDRY_MODEL=gpt-5-mini' \
             --output none
+      - name: Set GitHub Issue API settings
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          ISSUE_GITHUB_TOKEN: ${{ secrets.ISSUE_GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # トークンは任意。未設定でも Issue 起票以外は動くため、失敗にしない（ADR 0007）
+          if [[ -z "$ISSUE_GITHUB_TOKEN" ]]; then
+            echo "::warning::Repository secret ISSUE_GITHUB_TOKEN is not configured. GitHub Issue creation stays disabled."
+            exit 0
+          fi
+          static_web_app_name=$(az deployment group show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name flyingfish-dev \
+            --query properties.outputs.staticWebAppName.value \
+            --output tsv)
+          az staticwebapp appsettings set \
+            --name "$static_web_app_name" \
+            --setting-names "ISSUE_GITHUB_TOKEN=$ISSUE_GITHUB_TOKEN" \
+            --output none
 
   deploy-static-web-app:
     needs: [changes, verify, validate-infra, deploy-infrastructure, configure-foundry-settings]

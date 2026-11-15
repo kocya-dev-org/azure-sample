@@ -6,6 +6,7 @@ import {
   type HttpResponseInit,
   type InvocationContext,
 } from '@azure/functions';
+import { isGithubEnabled } from '../lib/github';
 import { getPrincipal, jsonError, logError, readJsonObject } from '../lib/http';
 import { compareForBacklog } from '../lib/rice';
 import {
@@ -108,10 +109,14 @@ export async function getBacklogHandler(
   try {
     const backlog = await getBacklog(productId, id);
     if (!backlog) return jsonError(404, 'バックログが見つかりません。');
-    const current = new Map((await listScoredItems(productId)).map((item) => [item.id, item]));
+    const [items, product] = await Promise.all([listScoredItems(productId), getProduct(productId)]);
+    const current = new Map(items.map((item) => [item.id, item]));
     return {
       jsonBody: {
         ...backlog,
+        // Issue 起票ボタンの有効・無効の判定用。トークンの値は返さない
+        githubEnabled: isGithubEnabled(),
+        hasRepository: Boolean(product?.repository),
         items: backlog.items.map((entry) => {
           const item = current.get(entry.scoredItemId);
           return {

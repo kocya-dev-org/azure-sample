@@ -5,11 +5,10 @@ import {
   type HttpResponseInit,
   type InvocationContext,
 } from '@azure/functions';
+import { REPOSITORY_PATTERN } from '../lib/github';
 import { jsonError, logError, readJsonObject, readString, type JsonObject } from '../lib/http';
 import { deleteProductCascade, getProduct, listProducts, saveProduct } from '../lib/store';
 import type { Product } from '../lib/types';
-
-export const REPOSITORY_PATTERN = /^[A-Za-z0-9-]+\/[A-Za-z0-9._-]+$/;
 
 type ProductInput = Pick<Product, 'name' | 'strategy' | 'repository'>;
 
