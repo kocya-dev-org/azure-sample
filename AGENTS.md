@@ -1,33 +1,58 @@
-# Project context
+# プロジェクトの概要
 
-## Overview
+## 概要
 
-Flyingfish is an Azure Static Web Apps sample. The frontend is static HTML, the API uses SWA managed Azure Functions v4 with the TypeScript v4 programming model, and Cosmos DB for NoSQL plus Blob Storage hold application data.
+Flyingfish は Azure 上で提供するクラウドサービスのプロダクトです。フロントエンドは React + Vite で構築する SPA、API には SWA マネージド Azure Functions v4 と TypeScript v4 プログラミングモデルを使用します。アプリケーションデータは Cosmos DB for NoSQL と Blob Storage に保存します。開発・ビルドは Node.js 24 を前提とします。
 
-## Repository layout and deployed architecture
+> 現在は土台構築中です。本ファイルは土台完成後の構成を記述しています。進捗と未完了の作業は `plan/00-foundation-checklist.md` を確認してください。
 
-- `infra/main.bicep`: resource-group-scoped deployment. Cosmos DB and application Blob Storage are in Japan East (`japaneast`); the SWA managed Functions backend is in East Asia (`eastasia`), a supported managed API region. It creates a Free tier Static Web App, a Free Tier Cosmos DB account, and an application data storage account.
-- Cosmos DB and Blob Storage have public network access enabled. Blob containers stay private. Both services use account connection strings stored as SWA API application settings. Cosmos DB local/key authentication is enabled for this connection-string sample.
-- Cosmos DB uses the Free Tier and a shared-throughput database at 400 RU/s, with an account throughput cap of 1,000 RU/s. Free Tier eligibility is limited to one account per subscription and covers up to 1,000 RU/s and 25 GB of storage.
-- `infra/environments/dev.bicepparam`: development parameters for `main.bicep`, including the Japan East data location and `dev` tag.
-- `src/frontend/`: static site files. `index.html` is the Japanese-language sample page. `staticwebapp.config.json` selects Node.js 22 for managed Functions and sets SWA route authentication.
-- `src/api/`: SWA managed Azure Functions v4 API, built with TypeScript and configured for Node.js 22. HTTP handlers are under `src/api/src/functions/`. Managed Functions supports HTTP triggers only, so this project has no timer trigger.
-- `.github/workflows/deploy.yml`: path-filtered Bicep validation and deployment, SWA API connection-string settings, and combined frontend plus managed API deployment.
+## リポジトリ構成とデプロイ後のアーキテクチャ
 
-There is no root package manifest. The API's `package.json` and `tsconfig.json` are the source of truth for its build configuration. The SWA deployment uses `npm run build` in `src/api`.
+- `package.json`（ルート）: npm workspaces（`src/frontend`、`src/api`）の定義と、lint・format・型チェック・テスト・ビルドの共通スクリプトを持ちます。lockfile はルートの `package-lock.json` に一本化します。
+- `.node-version`: 開発・CI で使う Node.js のメジャーバージョン（`24`）です。
+- `.oxlintrc.json`・oxfmt 設定・`vitest.config.ts`（ルート）: lint・format・テストの共通設定です。vitest は `test.projects` で frontend（jsdom）と api（node）を束ねます。
+- `infra/main.bicep`: リソースグループをスコープとするデプロイ定義です。Cosmos DB とアプリケーション用 Blob Storage は Japan East (`japaneast`)、SWA マネージド Functions バックエンドは、マネージド API がサポートされているリージョンの East Asia (`eastasia`) に配置します。Free レベルの Static Web App、Free Tier の Cosmos DB アカウント、アプリケーションデータ用ストレージアカウントを作成します。
+- Cosmos DB と Blob Storage ではパブリックネットワークアクセスを有効にします。Blob コンテナーはプライベートのままにします。両サービスのアカウント接続文字列は、SWA API のアプリケーション設定に保存して使用します。この接続文字列を使う構成では、Cosmos DB のローカルキー認証を有効にします。
+- Cosmos DB では Free Tier を使用し、共有スループット 400 RU/s のデータベースを設定します。アカウントのスループット上限は 1,000 RU/s です。Free Tier を利用できるのはサブスクリプションごとに 1 アカウントまでで、対象は最大 1,000 RU/s、ストレージ 25 GB です。
+- `infra/environments/dev.bicepparam`: `main.bicep` 用の開発環境パラメーターです。Japan East のデータ配置先と `dev` タグを含みます。
+- `src/frontend/`: React + TypeScript の SPA（Vite プロジェクト）です。エントリーは `index.html` と `src/main.tsx`、ビルド出力は `src/frontend/dist/` です。`public/staticwebapp.config.json` はビルド時に `dist/` へ同梱され、マネージド Functions のランタイム（`platform.apiRuntime`）、SWA のルート認証、SPA 用の `navigationFallback` を設定します。
+- `src/api/`: SWA マネージド Azure Functions v4 API です。TypeScript でビルドします。HTTP ハンドラーは `src/api/src/functions/` にあります。マネージド Functions がサポートするのは HTTP トリガーのみのため、このプロジェクトにはタイマートリガーはありません。Microsoft Foundry の設定（`FOUNDRY_*`）も SWA API のアプリケーション設定から読み込みます。
+- `.github/workflows/deploy.yml`: パスフィルター付きの Bicep 検証とデプロイ、SWA API のアプリケーション設定、Node.js 24 での検証（format・lint・型チェック・テスト・ビルド）、ビルド済みのフロントエンドとマネージド API の一括デプロイ、PR プレビュー環境の作成とクローズを定義します。
+- `plan/`: 作業手順、チェックリスト、技術的な意思決定記録（`plan/decisions/` の ADR）を置きます。
+- `docs/`: アプリケーションの仕様（アーキテクチャ、技術スタック、開発手順、機能仕様）を置きます。`docs/architecture.drawio` は構成図です。
 
-## Working conventions
+## コマンド
 
-- Keep infrastructure changes in Bicep and environment-specific values in `infra/environments/*.bicepparam`. Preserve the resource-group deployment scope unless the architecture is intentionally changed.
-- Keep frontend assets in `src/frontend/` and API handlers in `src/api/src/functions/`. The frontend calls APIs through the `/api/...` path on the same Static Web App host.
-- Keep the managed Functions runtime consistent between `src/api/package.json` and `src/frontend/staticwebapp.config.json` unless a deliberate runtime change updates both and the deployment assumptions.
-- Keep the Cosmos DB and Blob Storage location in `infra/main.bicep` and `infra/environments/dev.bicepparam` consistent with the intended data region. SWA managed Functions are limited to supported regions; the current API region is East Asia.
-- Treat changes to Azure resource properties, public network rules, runtime versions, deployment paths, GitHub permissions, and secret names as coordinated changes. Do not put credential values in source files.
-- The workflow validates infrastructure with `az bicep lint`, `az bicep build`, and `az bicep build-params`. Azure deployments use GitHub OIDC credentials (`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`) and `AZURE_RESOURCE_GROUP`; SWA deployment uses `AZURE_STATIC_WEB_APPS_API_TOKEN`.
-- No test suite or root-level build command is currently defined. Check package scripts and workflow steps before documenting or relying on additional validation commands.
+ルートで実行します。各 workspace 固有のスクリプトは `src/frontend/package.json` と `src/api/package.json` を正とします。
 
-## Change guidance
+- `npm ci`: 依存関係のインストール
+- `npm run format` / `npm run format:check`: oxfmt による整形 / 整形チェック
+- `npm run lint`: oxlint による静的解析
+- `npm run typecheck`: 全 workspace の型チェック
+- `npm test`: vitest による全テストの実行
+- `npm run build`: 全 workspace のビルド
 
-- Keep names, user-facing copy, and comments consistent with the existing Japanese-language sample unless the requested change calls for another language.
-- When adding deployable files or moving code, update `.github/workflows/deploy.yml` paths and build/deployment locations as needed. Its change filters watch `src/**` and `infra/**`.
-- Avoid introducing frameworks, dependencies, or new deployment mechanisms for a small sample change unless they are needed for the requested behavior.
+変更後は `npm run format:check && npm run lint && npm run typecheck && npm test && npm run build` が通ることを確認してください。
+
+## 作業時の規約
+
+- インフラストラクチャの変更は Bicep で行い、環境固有の値は `infra/environments/*.bicepparam` に記述します。アーキテクチャを意図的に変更する場合を除き、リソースグループスコープのデプロイと SWA マネージド Functions の構成を維持してください。
+- フロントエンドのコードは `src/frontend/src/`、API ハンドラーは `src/api/src/functions/` に配置します。フロントエンドから API を呼び出すときは、同じ Static Web App ホスト上の `/api/...` パスを使用します。ローカル開発では Vite の dev server が `/api` を Functions ホスト（`http://localhost:7071`）へプロキシします。
+- Node.js のバージョンは `.node-version`、各 `package.json` の `engines`、`src/frontend/public/staticwebapp.config.json` の `platform.apiRuntime`、ワークフローの `actions/setup-node` で一致させてください。SWA マネージド Functions が Node.js 24 に対応していない場合に限り、API の実行ランタイム（`apiRuntime` と `src/api` の `engines`・`@types/node`）を対応済みの最新バージョンに留めます。その判断は `plan/decisions/` の ADR に記録します。
+- lint と format には oxlint と oxfmt のみを使用します。ESLint や Prettier は導入しないでください。テストは vitest で記述し、テストファイルは対象コードの隣に `*.test.ts` / `*.test.tsx` として置きます。API では `dist/src/functions/*.js` がすべて Functions ホストに読み込まれるため、ビルド用の `src/api/tsconfig.build.json` で `**/*.test.ts` を除外し、テストファイルをデプロイ成果物に含めないでください（型チェック用の `tsconfig.json` はテストを含めて `noEmit` とします）。
+- SWA へのデプロイは、CI 上で Node.js 24 を使ってビルドした成果物をアップロードする方式です（`skip_app_build` / `skip_api_build`）。SWA 側のビルド（Oryx）には依存しないでください。
+- `infra/main.bicep` と `infra/environments/dev.bicepparam` の Cosmos DB および Blob Storage の配置先を、意図するデータリージョンに合わせてください。SWA マネージド Functions の配置先はサポート対象リージョンに限られます。現在の API リージョンは East Asia です。
+- Azure リソースのプロパティ、パブリックネットワーク規則、ランタイムバージョン、デプロイ先のパス、GitHub 権限、シークレット名を変更する場合は、関連する設定も合わせて変更してください。認証情報の値をソースファイルに記載してはいけません。
+- ワークフローでは `az bicep lint`、`az bicep build`、`az bicep build-params` を使ってインフラストラクチャを検証します。Azure のデプロイには GitHub OIDC 認証情報（`AZURE_CLIENT_ID`、`AZURE_TENANT_ID`、`AZURE_SUBSCRIPTION_ID`）と `AZURE_RESOURCE_GROUP` を使用します。SWA のデプロイには `AZURE_STATIC_WEB_APPS_API_TOKEN` を使用します。
+
+## ドキュメントと計画
+
+- 仕様（画面、API、データモデル、アーキテクチャ）を変更したら、同じ変更で `docs/` を更新してください。
+- 複数ステップにわたる作業や Azure・GitHub 側の手作業を伴う作業は、`plan/` にチェックリストを作成または更新してから進めてください。
+- 技術選定やアーキテクチャの判断は `plan/decisions/NNNN-<slug>.md` に ADR として記録してください。
+
+## 変更時の指針
+
+- 別の言語が求められている場合を除き、名前、ユーザー向けの文言、コメント、ドキュメントは日本語で記述してください。
+- デプロイ対象ファイルを追加したり、コードを移動したりする場合は、必要に応じて `.github/workflows/deploy.yml` の対象パスとビルド・デプロイ先も更新してください。変更フィルターは `infra/**`、`src/api/**`、`src/frontend/**` とルートのツール設定（`package.json`、`package-lock.json`、`.node-version`、lint・format・テストの設定）を監視します。
+- 依存関係は必要最小限にしてください。新しいフレームワーク、ライブラリ、デプロイ方式を導入する場合は、事前に ADR で理由を記録してください。
