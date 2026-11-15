@@ -51,10 +51,10 @@
 
 ## Phase 1-3: インフラと CI
 
-- [ ] Cosmos DB のコンテナーを追加する
+- [x] Cosmos DB のコンテナーを追加する
   - 対象ファイル: `infra/main.bicep`
   - 完了条件: `records` が削除され、`products`（`/id`）、`proposals`（`/productId`、`defaultTtl: -1`）、`scoredItems`（`/productId`）、`backlogs`（`/productId`）が定義されている。`az bicep lint` と `az bicep build` が通る。
-- [ ] ワークフローを更新する
+- [x] ワークフローを更新する
   - 対象ファイル: `.github/workflows/deploy.yml`, `scripts/`（シークレット検査）
   - 完了条件:
     - アプリケーション設定から `COSMOS_CONTAINER_ID` が外れている。

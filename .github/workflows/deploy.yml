@@ -71,6 +71,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
+      - name: Check build outputs for secrets
+        run: npm run check:secrets
 
   validate-infra:
     needs: changes
@@ -120,7 +122,6 @@ jobs:
 
           static_web_app_name=$(jq -er '.properties.outputs.staticWebAppName.value' <<< "$deployment")
           cosmos_name=$(jq -er '.properties.outputs.cosmosAccountName.value' <<< "$deployment")
-          storage_name=$(jq -er '.properties.outputs.dataStorageAccountName.value' <<< "$deployment")
 
           cosmos_connection_string=$(az cosmosdb keys list \
             --resource-group "$RESOURCE_GROUP" \
@@ -128,20 +129,13 @@ jobs:
             --type connection-strings \
             --query 'connectionStrings[0].connectionString' \
             --output tsv)
-          blob_connection_string=$(az storage account show-connection-string \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$storage_name" \
-            --query connectionString \
-            --output tsv)
 
+          # Blob Storage は MVP では使わないため、接続文字列は設定しない（ADR 0003）
           az staticwebapp appsettings set \
             --name "$static_web_app_name" \
             --setting-names \
               "COSMOS_CONNECTION_STRING=$cosmos_connection_string" \
               'COSMOS_DATABASE_ID=flyingfish' \
-              'COSMOS_CONTAINER_ID=records' \
-              "BLOB_CONNECTION_STRING=$blob_connection_string" \
-              'BLOB_CONTAINER_NAME=objects' \
             --output none
 
   configure-foundry-settings:
