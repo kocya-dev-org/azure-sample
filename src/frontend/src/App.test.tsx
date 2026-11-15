@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import App from './App';
 import { mockFetch, PRODUCT } from './test/fetchMock';
@@ -14,8 +14,10 @@ describe('App', () => {
     render(<App />);
 
     await waitFor(() => expect(window.location.pathname).toBe('/proposals'));
-    const links = screen.getAllByRole('link').map((link) => link.textContent);
-    expect(links.slice(0, 3)).toEqual(['提案', 'バックログ', 'プロダクト情報']);
+    const links = within(screen.getByRole('navigation', { name: 'メニュー' }))
+      .getAllByRole('link')
+      .map((link) => link.textContent);
+    expect(links).toEqual(['提案', 'バックログ', 'プロダクト情報']);
   });
 
   it('ヘッダーで選んだプロダクトを保存する', async () => {
@@ -33,10 +35,11 @@ describe('App', () => {
     mockFetch({ 'GET /api/products': [] });
     render(<App />);
 
-    fireEvent.click(screen.getByRole('link', { name: 'プロダクト情報' }));
+    const menu = within(screen.getByRole('navigation', { name: 'メニュー' }));
+    fireEvent.click(menu.getByRole('link', { name: 'プロダクト情報' }));
 
     expect(window.location.pathname).toBe('/products');
-    expect(screen.getByRole('link', { name: 'プロダクト情報' })).toHaveAttribute(
+    expect(menu.getByRole('link', { name: 'プロダクト情報' })).toHaveAttribute(
       'aria-current',
       'page',
     );

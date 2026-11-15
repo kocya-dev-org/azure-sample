@@ -1,0 +1,172 @@
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import App from '../App';
+import {
+  json,
+  mockFetch,
+  noContent,
+  PRODUCT,
+  selectProductInStorage,
+  textStream,
+} from '../test/fetchMock';
+
+const proposal = (id: string, title: string) => ({
+  id,
+  productId: 'p1',
+  title,
+  body: `${title} の内容`,
+  author: { userId: 'u1', name: 'user@example.com' },
+  createdAt: '2026-11-10T00:00:00.000Z',
+  updatedAt: '2026-11-10T00:00:00.000Z',
+  rice: { reach: 100, impact: 1, confidence: 0.8, effort: 2, score: 40, rationale: 'r' },
+  strategyFit: { score: 75, rationale: 'f' },
+  status: 'open',
+});
+
+function openAt(path: string) {
+  window.history.replaceState(null, '', path);
+  render(<App />);
+}
+
+beforeEach(() => {
+  window.localStorage.clear();
+  selectProductInStorage('p1');
+});
+
+describe('提案一覧', () => {
+  it('プロダクト未選択なら選択を促す', async () => {
+    window.localStorage.clear();
+    mockFetch({ 'GET /api/products': [PRODUCT] });
+    openAt('/proposals');
+    expect(await screen.findByText(/操作するプロダクトを選んでください/)).toBeInTheDocument();
+  });
+
+  it('スコア付きで一覧を表示し、編集は 1 件選択のときだけ有効にする', async () => {
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/proposals': [proposal('a1', '提案A'), proposal('a2', '提案B')],
+    });
+    openAt('/proposals');
+
+    expect(await screen.findByText('提案A')).toBeInTheDocument();
+    expect(screen.getAllByText('40')).toHaveLength(2);
+    const edit = screen.getByRole('button', { name: '編集' });
+    const remove = screen.getByRole('button', { name: '削除' });
+    expect(edit).toBeDisabled();
+    expect(remove).toBeDisabled();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '提案A を選択' }));
+    expect(edit).toBeEnabled();
+    fireEvent.click(screen.getByRole('checkbox', { name: '提案B を選択' }));
+    expect(edit).toBeDisabled();
+    expect(remove).toBeEnabled();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: '提案B を選択' }));
+    fireEvent.click(edit);
+    expect(window.location.pathname).toBe('/proposals/a1/edit');
+  });
+
+  it('選択した提案を確認後に削除する', async () => {
+    const deleted = vi.fn<() => Response>(() => noContent());
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/proposals': [proposal('a1', '提案A')],
+      'DELETE /api/products/p1/proposals/a1': deleted,
+    });
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    openAt('/proposals');
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: '提案A を選択' }));
+    fireEvent.click(screen.getByRole('button', { name: '削除' }));
+
+    await waitFor(() => expect(deleted).toHaveBeenCalledOnce());
+  });
+});
+
+describe('提案フォーム', () => {
+  it('判定コメントをストリームで表示し、このまま送信できる', async () => {
+    const created = vi.fn<(body: unknown) => Response>(() => json(proposal('a1', 'T'), 201));
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/proposals': [],
+      'POST /api/products/p1/proposals/review': () =>
+        textStream(['Reach: 対象ユーザー数が不明です。', '\n- 何社が利用しますか？']),
+      'POST /api/products/p1/proposals': created,
+    });
+    openAt('/proposals/new');
+
+    fireEvent.change(await screen.findByLabelText('タイトル'), { target: { value: 'CSV 出力' } });
+    fireEvent.change(screen.getByLabelText('内容'), { target: { value: '帳票を CSV で出したい' } });
+    fireEvent.click(screen.getByRole('button', { name: '判定' }));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('ai-comment')).toHaveTextContent(
+        'Reach: 対象ユーザー数が不明です。 - 何社が利用しますか？',
+      ),
+    );
+    expect(screen.getByLabelText('内容')).toHaveAttribute('readonly');
+
+    fireEvent.click(screen.getByRole('button', { name: 'このまま送信' }));
+
+    await waitFor(() => expect(window.location.pathname).toBe('/proposals'));
+    expect(created).toHaveBeenCalledWith({ title: 'CSV 出力', body: '帳票を CSV で出したい' });
+  });
+
+  it('追記して再判定すると内容を編集できるようになる', async () => {
+    const review = vi.fn<(body: unknown) => Response>(() => textStream(['コメント']));
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'POST /api/products/p1/proposals/review': review,
+    });
+    openAt('/proposals/new');
+
+    fireEvent.change(await screen.findByLabelText('タイトル'), { target: { value: 'T' } });
+    fireEvent.change(screen.getByLabelText('内容'), { target: { value: 'B' } });
+    fireEvent.click(screen.getByRole('button', { name: '判定' }));
+    fireEvent.click(await screen.findByRole('button', { name: '追記して再判定' }));
+
+    const body = screen.getByLabelText('内容');
+    expect(body).not.toHaveAttribute('readonly');
+    fireEvent.change(body, { target: { value: 'B\n対象は 50 社' } });
+    fireEvent.click(screen.getByRole('button', { name: '判定' }));
+
+    await waitFor(() => expect(review).toHaveBeenCalledTimes(2));
+    expect(review).toHaveBeenLastCalledWith({ title: 'T', body: 'B\n対象は 50 社' });
+  });
+
+  it('編集では既存の内容を読み込み、更新として送信する', async () => {
+    const updated = vi.fn<(body: unknown) => Response>(() => json(proposal('a1', 'T')));
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/proposals': [],
+      'GET /api/products/p1/proposals/a1': proposal('a1', '既存の提案'),
+      'POST /api/products/p1/proposals/review': () => textStream(['OK']),
+      'PUT /api/products/p1/proposals/a1': updated,
+    });
+    openAt('/proposals/a1/edit');
+
+    expect(await screen.findByDisplayValue('既存の提案')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '判定' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'このまま送信' }));
+
+    await waitFor(() => expect(updated).toHaveBeenCalledOnce());
+  });
+
+  it('判定に失敗したらエラーを表示して入力に戻す', async () => {
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'POST /api/products/p1/proposals/review': () =>
+        json({ error: '生成 AI による判定に失敗しました。' }, 502),
+    });
+    openAt('/proposals/new');
+
+    fireEvent.change(await screen.findByLabelText('タイトル'), { target: { value: 'T' } });
+    fireEvent.change(screen.getByLabelText('内容'), { target: { value: 'B' } });
+    fireEvent.click(screen.getByRole('button', { name: '判定' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '生成 AI による判定に失敗しました。',
+    );
+    expect(screen.getByRole('button', { name: '判定' })).toBeEnabled();
+  });
+});
