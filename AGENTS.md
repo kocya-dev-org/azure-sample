@@ -2,7 +2,7 @@
 
 ## 概要
 
-Flyingfish は Azure 上で提供するクラウドサービスのプロダクトです。フロントエンドは React + Vite で構築する SPA、API には SWA マネージド Azure Functions v4 と TypeScript v4 プログラミングモデルを使用します。アプリケーションデータは Cosmos DB for NoSQL と Blob Storage に保存します。開発・ビルドは Node.js 24 を前提とします。
+Flyingfish は Azure 上で提供するクラウドサービスのプロダクトです。ソフトウェア製品への要望（提案）を生成 AI で RICE と戦略合致度によりスコアリングし、期間内の上位 10 件を次期開発のバックログとして表示します（仕様は `docs/features.md`）。フロントエンドは React + Vite で構築する SPA、API には SWA マネージド Azure Functions v4 と TypeScript v4 プログラミングモデルを使用します。アプリケーションデータは Cosmos DB for NoSQL と Blob Storage に保存します。開発・ビルドは Node.js 24 を前提とします。
 
 > 現在は土台構築中です。本ファイルは土台完成後の構成を記述しています。進捗と未完了の作業は `plan/00-foundation-checklist.md` を確認してください。
 
@@ -12,11 +12,11 @@ Flyingfish は Azure 上で提供するクラウドサービスのプロダク�
 - `.node-version`: 開発・CI で使う Node.js のメジャーバージョン（`24`）です。
 - `.oxlintrc.json`・oxfmt 設定・`vitest.config.ts`（ルート）: lint・format・テストの共通設定です。vitest は `test.projects` で frontend（jsdom）と api（node）を束ねます。
 - `infra/main.bicep`: リソースグループをスコープとするデプロイ定義です。Cosmos DB とアプリケーション用 Blob Storage は Japan East (`japaneast`)、SWA マネージド Functions バックエンドは、マネージド API がサポートされているリージョンの East Asia (`eastasia`) に配置します。Free レベルの Static Web App、Free Tier の Cosmos DB アカウント、アプリケーションデータ用ストレージアカウントを作成します。
-- Cosmos DB と Blob Storage ではパブリックネットワークアクセスを有効にします。Blob コンテナーはプライベートのままにします。両サービスのアカウント接続文字列は、SWA API のアプリケーション設定に保存して使用します。この接続文字列を使う構成では、Cosmos DB のローカルキー認証を有効にします。
+- Cosmos DB と Blob Storage ではパブリックネットワークアクセスを有効にします。Blob コンテナーはプライベートのままにします（Blob Storage は MVP では使っていません）。Cosmos DB のアカウント接続文字列は、SWA API のアプリケーション設定に保存して使用します。この接続文字列を使う構成では、Cosmos DB のローカルキー認証を有効にします。Cosmos DB のコンテナーは `products`・`proposals`・`scoredItems`・`backlogs` で、Bicep の定義と `src/api/src/lib/cosmos.ts` の定義を一致させます（API が初回アクセス時にも作成します。ADR 0008）。
 - Cosmos DB では Free Tier を使用し、共有スループット 400 RU/s のデータベースを設定します。アカウントのスループット上限は 1,000 RU/s です。Free Tier を利用できるのはサブスクリプションごとに 1 アカウントまでで、対象は最大 1,000 RU/s、ストレージ 25 GB です。
 - `infra/environments/dev.bicepparam`: `main.bicep` 用の開発環境パラメーターです。Japan East のデータ配置先と `dev` タグを含みます。
 - `src/frontend/`: React + TypeScript の SPA（Vite プロジェクト）です。エントリーは `index.html` と `src/main.tsx`、ビルド出力は `src/frontend/dist/` です。`public/staticwebapp.config.json` はビルド時に `dist/` へ同梱され、マネージド Functions のランタイム（`platform.apiRuntime`）、SWA のルート認証、SPA 用の `navigationFallback` を設定します。
-- `src/api/`: SWA マネージド Azure Functions v4 API です。TypeScript でビルドします。HTTP ハンドラーは `src/api/src/functions/` にあります。マネージド Functions がサポートするのは HTTP トリガーのみのため、このプロジェクトにはタイマートリガーはありません。Microsoft Foundry の設定（`FOUNDRY_*`）も SWA API のアプリケーション設定から読み込みます。
+- `src/api/`: SWA マネージド Azure Functions v4 API です。TypeScript でビルドします。HTTP ハンドラーは `src/api/src/functions/`、共通モジュール（Cosmos DB、Foundry、プロンプト、RICE、GitHub、HTTP 共通処理）は `src/api/src/lib/` にあります。マネージド Functions がサポートするのは HTTP トリガーのみのため、このプロジェクトにはタイマートリガーはありません。Microsoft Foundry の設定（`FOUNDRY_*`）と GitHub Issue 起票用のトークン（`ISSUE_GITHUB_TOKEN`、任意）も SWA API のアプリケーション設定から読み込みます。設定は import 時ではなく使うときに検査します。
 - `.github/workflows/deploy.yml`: パスフィルター付きの Bicep 検証とデプロイ、SWA API のアプリケーション設定、Node.js 24 での検証（format・lint・型チェック・テスト・ビルド）、ビルド済みのフロントエンドとマネージド API の一括デプロイ、PR プレビュー環境の作成とクローズを定義します。
 - `plan/`: 作業手順、チェックリスト、技術的な意思決定記録（`plan/decisions/` の ADR）を置きます。
 - `docs/`: アプリケーションの仕様（アーキテクチャ、技術スタック、開発手順、機能仕様）を置きます。`docs/architecture.drawio` は構成図です。
@@ -32,19 +32,21 @@ Flyingfish は Azure 上で提供するクラウドサービスのプロダク�
 - `npm test`: vitest による全テストの実行
 - `npm run build`: 全 workspace のビルド
 - `npm run stage:api`: ビルド済み API を本番依存のみで `.deploy/api` にステージング（CI のデプロイ用。`scripts/stage-api.mjs`）
+- `npm run check:secrets`: ビルド成果物（`src/frontend/dist`・`src/api/dist`）にシークレットらしき文字列がないかを検査（`scripts/check-secrets.mjs`）
 
-変更後は `npm run format:check && npm run lint && npm run typecheck && npm test && npm run build` が通ることを確認してください。
+変更後は `npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run check:secrets` が通ることを確認してください。
 
 ## 作業時の規約
 
 - インフラストラクチャの変更は Bicep で行い、環境固有の値は `infra/environments/*.bicepparam` に記述します。アーキテクチャを意図的に変更する場合を除き、リソースグループスコープのデプロイと SWA マネージド Functions の構成を維持してください。
 - フロントエンドのコードは `src/frontend/src/`、API ハンドラーは `src/api/src/functions/` に配置します。フロントエンドから API を呼び出すときは、同じ Static Web App ホスト上の `/api/...` パスを使用します。ローカル開発では Vite の dev server が `/api` を Functions ホスト（`http://localhost:7071`）へプロキシします。
 - Node.js のバージョンは `.node-version`、各 `package.json` の `engines`、`src/frontend/public/staticwebapp.config.json` の `platform.apiRuntime`、ワークフローの `actions/setup-node` で一致させてください。SWA マネージド Functions が Node.js 24 に対応していない場合に限り、API の実行ランタイム（`apiRuntime` と `src/api` の `engines`・`@types/node`）を対応済みの最新バージョンに留めます。その判断は `plan/decisions/` の ADR に記録します。
-- lint と format には oxlint と oxfmt のみを使用します。ESLint や Prettier は導入しないでください。テストは vitest で記述し、テストファイルは対象コードの隣に `*.test.ts` / `*.test.tsx` として置きます。API では `dist/src/functions/*.js` がすべて Functions ホストに読み込まれるため、ビルド用の `src/api/tsconfig.build.json` で `**/*.test.ts` を除外し、テストファイルをデプロイ成果物に含めないでください（型チェック用の `tsconfig.json` はテストを含めて `noEmit` とします）。
+- lint と format には oxlint と oxfmt のみを使用します。ESLint や Prettier は導入しないでください。テストは vitest で記述し、テストファイルは対象コードの隣に `*.test.ts` / `*.test.tsx` として置きます。API のエントリーポイントは `src/api/src/index.ts`（`main` は `dist/src/index.js`）で、HTTP ストリーミングを有効にしてから各ハンドラーを import します。新しいハンドラーを追加したら、ここに import を追加してください。ビルド用の `src/api/tsconfig.build.json` では `**/*.test.ts` を除外し、テストファイルをデプロイ成果物に含めないでください（型チェック用の `tsconfig.json` はテストと `src/api/test/` のヘルパーを含めて `noEmit` とします）。
 - SWA へのデプロイは、CI 上で Node.js 24 を使ってビルドした成果物をアップロードする方式です（`skip_app_build` / `skip_api_build`）。SWA 側のビルド（Oryx）には依存しないでください。
 - `infra/main.bicep` と `infra/environments/dev.bicepparam` の Cosmos DB および Blob Storage の配置先を、意図するデータリージョンに合わせてください。SWA マネージド Functions の配置先はサポート対象リージョンに限られます。現在の API リージョンは East Asia です。
 - Azure リソースのプロパティ、パブリックネットワーク規則、ランタイムバージョン、デプロイ先のパス、GitHub 権限、シークレット名を変更する場合は、関連する設定も合わせて変更してください。認証情報の値をソースファイルに記載してはいけません。
-- ワークフローでは `az bicep lint`、`az bicep build`、`az bicep build-params` を使ってインフラストラクチャを検証します。Azure のデプロイには GitHub OIDC 認証情報（`AZURE_CLIENT_ID`、`AZURE_TENANT_ID`、`AZURE_SUBSCRIPTION_ID`）と `AZURE_RESOURCE_GROUP` を使用します。SWA のデプロイには `AZURE_STATIC_WEB_APPS_API_TOKEN` を使用します。
+- ワークフローでは `az bicep lint`、`az bicep build`、`az bicep build-params` を使ってインフラストラクチャを検証します。Azure のデプロイには GitHub OIDC 認証情報（`AZURE_CLIENT_ID`、`AZURE_TENANT_ID`、`AZURE_SUBSCRIPTION_ID`）と `AZURE_RESOURCE_GROUP` を使用します。SWA のデプロイには `AZURE_STATIC_WEB_APPS_API_TOKEN` を使用します。API のアプリケーション設定には、リポジトリ secret の `AZURE_AI_FOUNDRY_API_KEY`（必須）と `ISSUE_GITHUB_TOKEN`（任意。空なら警告のみ）を使用します。
+- Foundry や GitHub などの外部サービスは API からだけ呼び出し、キーやトークンをフロントエンドに置かないでください。API のエラーログには `src/api/src/lib/http.ts` の `logError` を使い、エラーレスポンスには外部サービスの応答本文を含めないでください。
 
 ## ドキュメントと計画
 

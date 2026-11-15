@@ -1,6 +1,6 @@
 # データモデル
 
-> MVP の仕様（実装予定）です。コンテナー構成の判断は [ADR 0004](../plan/decisions/0004-cosmos-containers.md) にあります。
+> MVP のデータモデルです。コンテナーは API の初回アクセス時にも作成されます（[ADR 0008](../plan/decisions/0008-create-containers-on-first-use.md)）。コンテナー構成の判断は [ADR 0004](../plan/decisions/0004-cosmos-containers.md) にあります。
 
 Cosmos DB for NoSQL のデータベース `flyingfish`（共有スループット 400 RU/s）に、次の 4 つのコンテナーを置きます。
 

@@ -18,16 +18,17 @@ npm ci
 
 ## ルートコマンド
 
-| コマンド               | 内容                     |
-| ---------------------- | ------------------------ |
-| `npm run format`       | oxfmt で整形             |
-| `npm run format:check` | 整形の差分を検査         |
-| `npm run lint`         | oxlint                   |
-| `npm run typecheck`    | 全 workspace の型検査    |
-| `npm test`             | vitest（frontend / api） |
-| `npm run build`        | 全 workspace のビルド    |
+| コマンド                | 内容                           |
+| ----------------------- | ------------------------------ |
+| `npm run format`        | oxfmt で整形                   |
+| `npm run format:check`  | 整形の差分を検査               |
+| `npm run lint`          | oxlint                         |
+| `npm run typecheck`     | 全 workspace の型検査          |
+| `npm test`              | vitest（frontend / api）       |
+| `npm run build`         | 全 workspace のビルド          |
+| `npm run check:secrets` | ビルド成果物のシークレット検査 |
 
-CI の `verify` ジョブは `format:check` → `lint` → `typecheck` → `test` → `build` の順に実行します。
+CI の `verify` ジョブは `format:check` → `lint` → `typecheck` → `test` → `build` → `check:secrets` の順に実行します。
 
 ## フロントエンド
 
@@ -53,20 +54,27 @@ func start
 
 - `COSMOS_CONNECTION_STRING`（必須）
 - `COSMOS_DATABASE_ID`（任意。既定 `flyingfish`）
-- `COSMOS_CONTAINER_ID`（任意。既定 `records`）
-- `BLOB_CONNECTION_STRING`（必須）
-- `BLOB_CONTAINER_NAME`（任意。既定 `objects`）
 - `FOUNDRY_API_KEY`（必須）
 - `FOUNDRY_ENDPOINT`（必須）
 - `FOUNDRY_MODEL`（任意。既定 `gpt-5-mini`）
+- `ISSUE_GITHUB_TOKEN`（任意）: GitHub Issue 起票用の fine-grained personal access token です。対象リポジトリを限定し、権限は Issues: Read and write だけにします。未設定でも起票以外の機能は動きます。本番環境とプレビュー環境では、リポジトリ secret `ISSUE_GITHUB_TOKEN` に登録します（[ADR 0007](../plan/decisions/0007-github-issue-token.md)）。
 
-MVP の実装後は、次のように変わります（[MVP チェックリスト](../plan/01-mvp-checklist.md)）。
+コンテナー名はコードの定数です（`src/api/src/lib/cosmos.ts`）。コンテナーがなければ、API が初回アクセス時に作成します。
 
-- `COSMOS_CONTAINER_ID` は使わなくなります（コンテナー名はコードの定数）。
-- `BLOB_CONNECTION_STRING` と `BLOB_CONTAINER_NAME` は使わなくなります。
-- Phase 2 で `ISSUE_GITHUB_TOKEN`（任意）が加わります。GitHub Issue 起票用の fine-grained personal access token で、権限は対象リポジトリの Issues: Read and write だけにします。未設定でも起票以外の機能は動きます。本番環境とプレビュー環境では、リポジトリ secret `ISSUE_GITHUB_TOKEN` に登録します（[ADR 0007](../plan/decisions/0007-github-issue-token.md)）。
+設定は、使うときに初めて検査します（`src/api/src/lib/settings.ts`）。たとえば Foundry の設定がなくても、プロダクトの登録や一覧は動きます。
 
-`foundry.ts` はモジュール読み込み時に `FOUNDRY_API_KEY` と `FOUNDRY_ENDPOINT` を検査します。未設定のまま `hello.ts` が読み込まれると例外になります。`data.ts` も同様に `COSMOS_CONNECTION_STRING` と `BLOB_CONNECTION_STRING` を検査します。
+## 動作確認用のエンドポイント
+
+`GET /api/diag/stream` は、HTTP ストリーミングがブラウザーまで届くかを確かめる一時的なエンドポイントです。1 秒ごとに 1 行ずつ返します。PR プレビュー環境での確認が済んだら削除します（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)）。
+
+## シークレット検査
+
+```bash
+npm run build
+npm run check:secrets
+```
+
+ビルド成果物にシークレットらしき文字列（接続文字列、アカウントキー、GitHub トークン、API キーの形式）や、実行環境に設定されたシークレットの値そのものがないかを検査します。CI の `verify` ジョブでも実行します。
 
 ## API のテスト
 

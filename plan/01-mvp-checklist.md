@@ -100,11 +100,14 @@
 
 ## Phase 1-6: 仕上げ
 
-- [ ] ドキュメントを実装に合わせる
-  - 対象ファイル: `docs/architecture.md`, `docs/architecture.drawio`, `docs/development.md`, `docs/api.md`, `AGENTS.md`
-  - 完了条件: 「実装予定」の表記が外れ、サンプル API の記述が削除されている。コンテナー名と `src/api/src/lib` の構成が反映されている。
-- [ ] 変更後の確認コマンドがすべて通る
-  - 完了条件: `npm run format:check && npm run lint && npm run typecheck && npm test && npm run build` と `npm run stage:api` が成功する。
+- [x] ドキュメントを実装に合わせる
+  - 対象ファイル: `docs/architecture.md`, `docs/development.md`, `docs/api.md`, `docs/features.md`, `docs/data-model.md`, `docs/README.md`, `AGENTS.md`, `plan/decisions/0005-ai-review-streaming.md`
+  - 完了条件: 「実装予定」の表記が外れ、サンプル API の記述が削除されている。コンテナー名と `src/api/src/lib` の構成、エントリーポイント `src/api/src/index.ts`、`check:secrets` が反映されている。
+- [ ] 構成図を MVP に合わせる
+  - 対象ファイル: `docs/architecture.drawio`
+  - 完了条件: Foundry・GitHub・Cosmos DB の 4 コンテナーと、CI の事前ビルド方式が図に反映されている。（未着手。土台チェックリストの後続タスクと合わせて対応する）
+- [x] 変更後の確認コマンドがすべて通る
+  - 完了条件: `npm run format:check && npm run lint && npm run typecheck && npm test && npm run build` と `npm run stage:api`、`npm run check:secrets` が成功する。
 
 ## Phase 2: Want 項目
 

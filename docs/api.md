@@ -1,6 +1,6 @@
-# API 仕様（MVP）
+# API 仕様
 
-> MVP の仕様（実装予定）です。実装後は、現在のサンプル API（[architecture.md](./architecture.md) の API エンドポイント一覧）を置き換えます。
+> MVP の API です。実装は `src/api/src/functions/` にあります。
 
 ## 共通事項
 
@@ -32,18 +32,21 @@
 | DELETE   | `/products/{productId}/proposals/{id}`   | 削除（スコア付き項目も削除） → 204                                                       |
 | POST     | `/products/{productId}/proposals/review` | 判定。本文 `{ title, body }`。コメントを `text/plain; charset=utf-8` のチャンクで返す    |
 
-- 判定とスコアリングで Foundry の呼び出しに失敗した場合は 502 を返します。
+- 判定とスコアリングで Foundry の呼び出しに失敗した場合は 502 を返します。判定のコメントが 1 文字も返らなかった場合や、スコアリングの出力が値の範囲外だった場合も 502 です。
+- 判定のストリームが途中で失敗した場合は、状態コードを変えられないため、本文の末尾に固定の文言を付けて終えます。
 - 判定のストリームが SWA で使えない場合は、`review` を次の方式に変えます（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)）。
   - `POST` で判定を開始し、`reviewId` を受け取る。
   - `GET /products/{productId}/proposals/review/{reviewId}` で、途中のテキストと完了状態を取得する。
 
 ## バックログ
 
-| メソッド | ルート                                | 説明                                                                     |
-| -------- | ------------------------------------- | ------------------------------------------------------------------------ |
-| GET      | `/products/{productId}/backlogs`      | 一覧（作成日の降順）                                                     |
-| POST     | `/products/{productId}/backlogs`      | 作成。本文 `{ from, to }`（`YYYY-MM-DD`、`from` ≤ `to`）→ 201 と作成内容 |
-| GET      | `/products/{productId}/backlogs/{id}` | 詳細。スナップショットに最新の実装状況・Issue・根拠を結合して返す        |
+期間（`from`・`to`）は日本時間の日付として扱い、両端の日を含みます。
+
+| メソッド | ルート                                | 説明                                                                                                       |
+| -------- | ------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| GET      | `/products/{productId}/backlogs`      | 一覧（作成日の降順）                                                                                       |
+| POST     | `/products/{productId}/backlogs`      | 作成。本文 `{ from, to }`（`YYYY-MM-DD`、`from` ≤ `to`）→ 201 と作成内容                                   |
+| GET      | `/products/{productId}/backlogs/{id}` | 詳細。スナップショットに最新の実装状況・Issue・根拠を結合し、`githubEnabled`・`hasRepository` を付けて返す |
 
 ## Phase 2（Want）
 
@@ -53,5 +56,12 @@
 | POST     | `/products/{productId}/issues`     | Issue 起票。本文 `{ itemIds }`。項目ごとの結果（起票した、起票済みでスキップ、失敗）を返す |
 | GET      | `/products/{productId}/dashboard`  | 集計。現在の提案数・Issue 起票数・実装済み数、直近 6 か月の月別推移、`githubEnabled`       |
 
+- `issues` の `itemIds` は 1〜10 件です。項目ごとに起票し、成功したらすぐに保存します。起票済みの項目はスキップするため、再実行しても二重に起票しません。
 - `issues` は、アプリケーション設定 `ISSUE_GITHUB_TOKEN` が未設定なら 503（「GitHub 連携が未設定です」）を返します。プロダクトにリポジトリが登録されていなければ 400 を返します。
 - `githubEnabled` は、トークンが設定されているかどうかの真偽値です。トークンの値は返しません。
+
+## 一時的なエンドポイント
+
+| メソッド | ルート         | 説明                                                                                                                                                     |
+| -------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| GET      | `/diag/stream` | HTTP ストリーミングの確認用。1 秒ごとに 1 行ずつ返す。PR プレビュー環境での確認後に削除する（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)） |
