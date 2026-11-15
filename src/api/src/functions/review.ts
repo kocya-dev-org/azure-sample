@@ -83,6 +83,11 @@ export async function reviewProposalHandler(
     logError(context, 'Foundry review failed', error);
     return jsonError(502, '生成 AI による判定に失敗しました。');
   }
+  // 推論だけで出力上限に達するなど、コメントが 1 文字も返らなかった場合も失敗として扱う
+  if (first.done) {
+    context.warn('Foundry review returned no text');
+    return jsonError(502, '生成 AI による判定に失敗しました。');
+  }
 
   return {
     headers: {
@@ -90,7 +95,7 @@ export async function reviewProposalHandler(
       'cache-control': 'no-store',
       'x-content-type-options': 'nosniff',
     },
-    body: toTextStream(first.done ? '' : first.value, iterator, (error) =>
+    body: toTextStream(first.value, iterator, (error) =>
       logError(context, 'Foundry review stream failed', error),
     ),
   };

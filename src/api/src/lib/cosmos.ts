@@ -1,6 +1,7 @@
 // Cosmos DB へのアクセス。クライアントは初めて使うときに生成する。
 // コンテナーは Bicep でも定義しているが、PR プレビュー環境ではインフラのデプロイが
-// 走らないため、初回アクセス時に createIfNotExists で作成する（ADR 0004 を補足）。
+// 走らないため、初回アクセス時に createIfNotExists で作成する（ADR 0008）。
+// コンテナーの定義を変えるときは infra/main.bicep も合わせて変更する。
 import { CosmosClient, type Container, type Database } from '@azure/cosmos';
 import { requiredSetting } from './settings';
 

@@ -9,6 +9,7 @@
   - [0005 判定コメントのストリーミング方式](./decisions/0005-ai-review-streaming.md)
   - [0006 SPA のルーティング方式](./decisions/0006-spa-routing.md)
   - [0007 GitHub Issue 起票のトークン管理とアクセス制御](./decisions/0007-github-issue-token.md)
+  - [0008 Cosmos DB コンテナーを API の初回アクセス時にも作成する](./decisions/0008-create-containers-on-first-use.md)
 
 ## セキュリティ方針（全 Step 共通の完了条件）
 
@@ -58,7 +59,7 @@
   - 対象ファイル: `.github/workflows/deploy.yml`, `scripts/`（シークレット検査）
   - 完了条件:
     - アプリケーション設定から `COSMOS_CONTAINER_ID` が外れている。
-    - `verify` ジョブで、`src/frontend/dist/` と `.deploy/api` にシークレットらしき文字列（接続文字列やキーの形式）がないことを検査している。
+    - `verify` ジョブで、`src/frontend/dist/` と `src/api/dist/` にシークレットらしき文字列（接続文字列やキーの形式）がないことを検査している。
 
 ## Phase 1-4: API ハンドラー（Must）
 

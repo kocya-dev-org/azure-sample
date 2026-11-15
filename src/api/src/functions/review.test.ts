@@ -64,6 +64,17 @@ describe('reviewProposalHandler', () => {
     });
   });
 
+  it('コメントが空なら 502 を返す', async () => {
+    vi.mocked(store.getProduct).mockResolvedValue(product);
+    vi.mocked(streamText).mockImplementation(async function* () {
+      yield* [];
+    });
+
+    const result = await reviewProposalHandler(request(), makeContext());
+
+    expect(result.status).toBe(502);
+  });
+
   it('途中で失敗したら固定の文言を付けて終える', async () => {
     vi.mocked(store.getProduct).mockResolvedValue(product);
     vi.mocked(streamText).mockImplementation(async function* () {
