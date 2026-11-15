@@ -4,9 +4,6 @@
   "private": true,
   "description": "Flyingfish Azure Functions API for Static Web Apps",
   "main": "dist/src/functions/*.js",
-  "engines": {
-    "node": ">=22 <23"
-  },
   "scripts": {
     "build": "tsc -p tsconfig.json"
   },
@@ -19,5 +16,8 @@
   "devDependencies": {
     "@types/node": "^22.0.0",
     "typescript": "^5.9.3"
+  },
+  "engines": {
+    "node": ">=22 <23"
   }
 }

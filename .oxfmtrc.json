@@ -5,10 +5,5 @@
   "tabWidth": 2,
   "trailingComma": "all",
   "printWidth": 100,
-  "ignorePatterns": [
-    "package-lock.json",
-    "infra/**/*.json",
-    "**/dist",
-    "**/coverage"
-  ]
+  "ignorePatterns": ["package-lock.json", "infra/**/*.json", "**/dist", "**/coverage"]
 }

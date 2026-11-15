@@ -18,14 +18,14 @@ npm ci
 
 ## ルートコマンド
 
-| コマンド | 内容 |
-| --- | --- |
-| `npm run format` | oxfmt で整形 |
-| `npm run format:check` | 整形の差分を検査 |
-| `npm run lint` | oxlint |
-| `npm run typecheck` | 全 workspace の型検査 |
-| `npm test` | vitest（frontend / api） |
-| `npm run build` | 全 workspace のビルド |
+| コマンド               | 内容                     |
+| ---------------------- | ------------------------ |
+| `npm run format`       | oxfmt で整形             |
+| `npm run format:check` | 整形の差分を検査         |
+| `npm run lint`         | oxlint                   |
+| `npm run typecheck`    | 全 workspace の型検査    |
+| `npm test`             | vitest（frontend / api） |
+| `npm run build`        | 全 workspace のビルド    |
 
 CI の `verify` ジョブは `format:check` → `lint` → `typecheck` → `test` → `build` の順に実行します。
 

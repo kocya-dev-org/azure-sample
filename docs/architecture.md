@@ -4,12 +4,12 @@
 
 ## 現行構成
 
-| 要素 | 構成 | リージョン |
-| --- | --- | --- |
-| Static Web Apps | Free レベル。フロントエンドとマネージド Functions を同一ホストで提供 | マネージド Functions バックエンドは East Asia (`eastasia`) |
-| マネージド Functions | Azure Functions v4 / TypeScript。HTTP トリガーのみ | East Asia |
-| Cosmos DB for NoSQL | Free Tier。データベース `flyingfish` に共有スループット 400 RU/s、アカウント上限 1,000 RU/s。コンテナー `records`（パーティションキー `/id`） | Japan East (`japaneast`) |
-| Blob Storage | StorageV2 / Standard_LRS。コンテナー `objects` はプライベート | Japan East |
+| 要素                 | 構成                                                                                                                                          | リージョン                                                 |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Static Web Apps      | Free レベル。フロントエンドとマネージド Functions を同一ホストで提供                                                                          | マネージド Functions バックエンドは East Asia (`eastasia`) |
+| マネージド Functions | Azure Functions v4 / TypeScript。HTTP トリガーのみ                                                                                            | East Asia                                                  |
+| Cosmos DB for NoSQL  | Free Tier。データベース `flyingfish` に共有スループット 400 RU/s、アカウント上限 1,000 RU/s。コンテナー `records`（パーティションキー `/id`） | Japan East (`japaneast`)                                   |
+| Blob Storage         | StorageV2 / Standard_LRS。コンテナー `objects` はプライベート                                                                                 | Japan East                                                 |
 
 - Cosmos DB と Blob Storage はパブリックネットワークアクセスを有効にしています。Cosmos DB はローカルキー認証が有効です。
 - Free Tier の Cosmos DB はサブスクリプションごとに 1 アカウントまでです。
@@ -37,20 +37,20 @@ Cosmos DB と Blob の設定は GitHub Actions のインフラデプロイ時に
 
 すべて `src/api/src/functions/` に定義されています。フロントエンドからは同一ホストの `/api/...` で呼び出します。
 
-| ファイル | メソッド | ルート | 概要 |
-| --- | --- | --- | --- |
-| `hello.ts` | GET | `/api/hello` | Microsoft Foundry で日本語の挨拶を生成して返す。失敗時は 502 |
-| `goodbye.ts` | GET | `/api/goodbye` | `{ "message": "goodbye" }` を返す |
-| `jobs.ts` | POST | `/api/jobs/run` | Function を手動実行し、メッセージを返す |
-| `items.ts` | GET | `/api/items` | Cosmos DB のレコード一覧 |
-| `items.ts` | POST | `/api/items` | レコード作成 |
-| `items.ts` | GET | `/api/items/{id}` | レコード取得 |
-| `items.ts` | PUT | `/api/items/{id}` | レコード置換 |
-| `items.ts` | DELETE | `/api/items/{id}` | レコード削除 |
-| `blobs.ts` | POST | `/api/blobs/{name}` | Blob 作成 |
-| `blobs.ts` | GET | `/api/blobs/{name}` | Blob 取得 |
-| `blobs.ts` | PUT | `/api/blobs/{name}` | Blob 置換 |
-| `blobs.ts` | DELETE | `/api/blobs/{name}` | Blob 削除 |
+| ファイル     | メソッド | ルート              | 概要                                                         |
+| ------------ | -------- | ------------------- | ------------------------------------------------------------ |
+| `hello.ts`   | GET      | `/api/hello`        | Microsoft Foundry で日本語の挨拶を生成して返す。失敗時は 502 |
+| `goodbye.ts` | GET      | `/api/goodbye`      | `{ "message": "goodbye" }` を返す                            |
+| `jobs.ts`    | POST     | `/api/jobs/run`     | Function を手動実行し、メッセージを返す                      |
+| `items.ts`   | GET      | `/api/items`        | Cosmos DB のレコード一覧                                     |
+| `items.ts`   | POST     | `/api/items`        | レコード作成                                                 |
+| `items.ts`   | GET      | `/api/items/{id}`   | レコード取得                                                 |
+| `items.ts`   | PUT      | `/api/items/{id}`   | レコード置換                                                 |
+| `items.ts`   | DELETE   | `/api/items/{id}`   | レコード削除                                                 |
+| `blobs.ts`   | POST     | `/api/blobs/{name}` | Blob 作成                                                    |
+| `blobs.ts`   | GET      | `/api/blobs/{name}` | Blob 取得                                                    |
+| `blobs.ts`   | PUT      | `/api/blobs/{name}` | Blob 置換                                                    |
+| `blobs.ts`   | DELETE   | `/api/blobs/{name}` | Blob 削除                                                    |
 
 `data.ts`（Cosmos DB / Blob クライアント）と `foundry.ts`（Foundry クライアント）は共通モジュールで、ルートを持ちません。
 

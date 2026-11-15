@@ -1,4 +1,9 @@
-import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
+import {
+  app,
+  type HttpRequest,
+  type HttpResponseInit,
+  type InvocationContext,
+} from '@azure/functions';
 import { getCosmosContainer } from './data';
 
 type RecordValue = Record<string, unknown> & { id: string };
@@ -30,8 +35,8 @@ app.http('listItems', {
   route: 'items',
   handler: async (_request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
     try {
-      const { resources } = await getCosmosContainer().items
-        .query<RecordValue>('SELECT * FROM c')
+      const { resources } = await getCosmosContainer()
+        .items.query<RecordValue>('SELECT * FROM c')
         .fetchAll();
       return { jsonBody: resources };
     } catch (error) {
@@ -54,8 +59,16 @@ app.http('createItem', {
       return { status: 201, jsonBody: resource };
     } catch (error) {
       context.error('Cosmos DB create failed', error);
-      const status = typeof error === 'object' && error !== null && 'code' in error && error.code === 409 ? 409 : 500;
-      return jsonError(status, status === 409 ? '同じ id のレコードがすでにあります。' : 'Cosmos DB の作成に失敗しました。');
+      const status =
+        typeof error === 'object' && error !== null && 'code' in error && error.code === 409
+          ? 409
+          : 500;
+      return jsonError(
+        status,
+        status === 409
+          ? '同じ id のレコードがすでにあります。'
+          : 'Cosmos DB の作成に失敗しました。',
+      );
     }
   },
 });
@@ -72,8 +85,14 @@ app.http('getItem', {
       return resource ? { jsonBody: resource } : jsonError(404, 'レコードが見つかりません。');
     } catch (error) {
       context.error('Cosmos DB read failed', error);
-      const status = typeof error === 'object' && error !== null && 'code' in error && error.code === 404 ? 404 : 500;
-      return jsonError(status, status === 404 ? 'レコードが見つかりません。' : 'Cosmos DB の読み込みに失敗しました。');
+      const status =
+        typeof error === 'object' && error !== null && 'code' in error && error.code === 404
+          ? 404
+          : 500;
+      return jsonError(
+        status,
+        status === 404 ? 'レコードが見つかりません。' : 'Cosmos DB の読み込みに失敗しました。',
+      );
     }
   },
 });
@@ -87,14 +106,21 @@ app.http('replaceItem', {
     const parsed = await parseRecord(request);
     if ('error' in parsed) return parsed.error;
     const { record } = parsed;
-    if (!id || record.id !== id) return jsonError(400, 'URL の id と JSON の id を一致させてください。');
+    if (!id || record.id !== id)
+      return jsonError(400, 'URL の id と JSON の id を一致させてください。');
     try {
       const { resource } = await getCosmosContainer().item(id, id).replace(record);
       return { jsonBody: resource };
     } catch (error) {
       context.error('Cosmos DB update failed', error);
-      const status = typeof error === 'object' && error !== null && 'code' in error && error.code === 404 ? 404 : 500;
-      return jsonError(status, status === 404 ? '更新するレコードが見つかりません。' : 'Cosmos DB の更新に失敗しました。');
+      const status =
+        typeof error === 'object' && error !== null && 'code' in error && error.code === 404
+          ? 404
+          : 500;
+      return jsonError(
+        status,
+        status === 404 ? '更新するレコードが見つかりません。' : 'Cosmos DB の更新に失敗しました。',
+      );
     }
   },
 });
@@ -111,8 +137,14 @@ app.http('deleteItem', {
       return { status: 204 };
     } catch (error) {
       context.error('Cosmos DB delete failed', error);
-      const status = typeof error === 'object' && error !== null && 'code' in error && error.code === 404 ? 404 : 500;
-      return jsonError(status, status === 404 ? '削除するレコードが見つかりません。' : 'Cosmos DB の削除に失敗しました。');
+      const status =
+        typeof error === 'object' && error !== null && 'code' in error && error.code === 404
+          ? 404
+          : 500;
+      return jsonError(
+        status,
+        status === 404 ? '削除するレコードが見つかりません。' : 'Cosmos DB の削除に失敗しました。',
+      );
     }
   },
 });

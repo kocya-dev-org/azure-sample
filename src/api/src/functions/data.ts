@@ -6,9 +6,9 @@ const cosmosContainer = cosmosClient
   .database(process.env.COSMOS_DATABASE_ID ?? 'flyingfish')
   .container(process.env.COSMOS_CONTAINER_ID ?? 'records');
 
-const blobContainer = BlobServiceClient
-  .fromConnectionString(requiredSetting('BLOB_CONNECTION_STRING'))
-  .getContainerClient(process.env.BLOB_CONTAINER_NAME ?? 'objects');
+const blobContainer = BlobServiceClient.fromConnectionString(
+  requiredSetting('BLOB_CONNECTION_STRING'),
+).getContainerClient(process.env.BLOB_CONTAINER_NAME ?? 'objects');
 
 function requiredSetting(name: string): string {
   const value = process.env[name];

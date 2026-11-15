@@ -1,4 +1,9 @@
-import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
+import {
+  app,
+  type HttpRequest,
+  type HttpResponseInit,
+  type InvocationContext,
+} from '@azure/functions';
 import { getBlobContainer } from './data';
 
 interface BlobPayload {
@@ -12,7 +17,12 @@ function jsonError(status: number, message: string): HttpResponseInit {
 async function parsePayload(request: HttpRequest): Promise<BlobPayload | HttpResponseInit> {
   try {
     const value: unknown = await request.json();
-    if (!value || typeof value !== 'object' || Array.isArray(value) || typeof (value as Record<string, unknown>).content !== 'string') {
+    if (
+      !value ||
+      typeof value !== 'object' ||
+      Array.isArray(value) ||
+      typeof (value as Record<string, unknown>).content !== 'string'
+    ) {
       return jsonError(400, 'content に文字列を指定してください。');
     }
     return { content: (value as BlobPayload).content };
@@ -40,15 +50,26 @@ app.http('createBlob', {
     if (!name) return jsonError(400, 'オブジェクト名が必要です。');
     if (isResponse(payload)) return payload;
     try {
-      await getBlobContainer().getBlockBlobClient(name).uploadData(Buffer.from(payload.content, 'utf8'), {
-        conditions: { ifNoneMatch: '*' },
-        blobHTTPHeaders: { blobContentType: 'text/plain; charset=utf-8' },
-      });
+      await getBlobContainer()
+        .getBlockBlobClient(name)
+        .uploadData(Buffer.from(payload.content, 'utf8'), {
+          conditions: { ifNoneMatch: '*' },
+          blobHTTPHeaders: { blobContentType: 'text/plain; charset=utf-8' },
+        });
       return { status: 201, jsonBody: { name, content: payload.content } };
     } catch (error) {
       context.error('Blob create failed', error);
-      const status = typeof error === 'object' && error !== null && 'statusCode' in error && error.statusCode === 412 ? 409 : 500;
-      return jsonError(status, status === 409 ? '同じ名前のオブジェクトがすでにあります。' : 'Blob の作成に失敗しました。');
+      const status =
+        typeof error === 'object' &&
+        error !== null &&
+        'statusCode' in error &&
+        error.statusCode === 412
+          ? 409
+          : 500;
+      return jsonError(
+        status,
+        status === 409 ? '同じ名前のオブジェクトがすでにあります。' : 'Blob の作成に失敗しました。',
+      );
     }
   },
 });
@@ -65,8 +86,17 @@ app.http('getBlob', {
       return { jsonBody: { name, content: download.toString('utf8') } };
     } catch (error) {
       context.error('Blob read failed', error);
-      const status = typeof error === 'object' && error !== null && 'statusCode' in error && error.statusCode === 404 ? 404 : 500;
-      return jsonError(status, status === 404 ? 'オブジェクトが見つかりません。' : 'Blob の読み込みに失敗しました。');
+      const status =
+        typeof error === 'object' &&
+        error !== null &&
+        'statusCode' in error &&
+        error.statusCode === 404
+          ? 404
+          : 500;
+      return jsonError(
+        status,
+        status === 404 ? 'オブジェクトが見つかりません。' : 'Blob の読み込みに失敗しました。',
+      );
     }
   },
 });
@@ -81,9 +111,11 @@ app.http('replaceBlob', {
     if (!name) return jsonError(400, 'オブジェクト名が必要です。');
     if (isResponse(payload)) return payload;
     try {
-      await getBlobContainer().getBlockBlobClient(name).uploadData(Buffer.from(payload.content, 'utf8'), {
-        blobHTTPHeaders: { blobContentType: 'text/plain; charset=utf-8' },
-      });
+      await getBlobContainer()
+        .getBlockBlobClient(name)
+        .uploadData(Buffer.from(payload.content, 'utf8'), {
+          blobHTTPHeaders: { blobContentType: 'text/plain; charset=utf-8' },
+        });
       return { jsonBody: { name, content: payload.content } };
     } catch (error) {
       context.error('Blob update failed', error);
@@ -101,7 +133,9 @@ app.http('deleteBlob', {
     if (!name) return jsonError(400, 'オブジェクト名が必要です。');
     try {
       const result = await getBlobContainer().getBlobClient(name).deleteIfExists();
-      return result.succeeded ? { status: 204 } : jsonError(404, '削除するオブジェクトが見つかりません。');
+      return result.succeeded
+        ? { status: 204 }
+        : jsonError(404, '削除するオブジェクトが見つかりません。');
     } catch (error) {
       context.error('Blob delete failed', error);
       return jsonError(500, 'Blob の削除に失敗しました。');
