@@ -74,7 +74,7 @@
     - 作成と更新で `json_schema` の構造化出力を使ってスコアリングし、`proposals` と `scoredItems` に分けて保存する。
     - RICE スコアはサーバーで計算する。値が範囲外なら 502 を返す。
     - 更新時に `status`・`doneAt`・`issue` を残す。
-- [ ] バックログ API
+- [x] バックログ API
   - 対象ファイル: `src/api/src/functions/backlogs.ts`, `backlogs.test.ts`
   - 完了条件: 期間内の項目を RICE の降順（同じ値なら戦略合致度の降順）で並べ、上位 10 件をスナップショットとして保存する。詳細では最新の実装状況・Issue・根拠を結合して返す。
 
