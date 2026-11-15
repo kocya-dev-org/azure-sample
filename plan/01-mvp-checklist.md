@@ -83,7 +83,7 @@
 - [x] レイアウト・ルーター・プロダクト選択
   - 対象ファイル: `src/frontend/src/{App.tsx,App.css,router.tsx}`, `src/frontend/src/context/ProductContext.tsx`, `src/frontend/src/components/*`, `src/frontend/src/api/client.ts`
   - 完了条件: 左メニュー（提案・バックログ・プロダクト情報）とヘッダー右端のプロダクト選択が表示される。選択が localStorage に保存される。`/` が `/proposals` にリダイレクトされる。
-- [ ] プロダクト情報画面
+- [x] プロダクト情報画面
   - 対象ファイル: `src/frontend/src/pages/Products.tsx` とテスト
   - 完了条件: 一覧、新規登録ダイアログ（名前・戦略・リポジトリ）、編集ダイアログ、削除（確認ダイアログ付き）ができる。
 - [ ] 提案一覧と提案フォーム

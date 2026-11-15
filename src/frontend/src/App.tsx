@@ -1,5 +1,6 @@
 import { Layout } from './components/Layout';
 import { ProductProvider } from './context/ProductContext';
+import { ProductsPage } from './pages/Products';
 import { matchPath, Redirect, RouterProvider, useRouter } from './router';
 
 function Placeholder({ title }: { title: string }) {
@@ -20,7 +21,7 @@ function Routes() {
   if (matchPath('/proposals/:id/edit', path)) return <Placeholder title="提案の編集" />;
   if (path === '/backlogs') return <Placeholder title="バックログ" />;
   if (matchPath('/backlogs/:id', path)) return <Placeholder title="バックログ詳細" />;
-  if (path === '/products') return <Placeholder title="プロダクト情報" />;
+  if (path === '/products') return <ProductsPage />;
   return (
     <section>
       <h1>ページが見つかりません</h1>

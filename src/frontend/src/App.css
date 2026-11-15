@@ -224,7 +224,8 @@ button.link:hover {
   gap: 4px;
 }
 
-.field > span {
+.field > span,
+.field > label {
   font-weight: 600;
   font-size: 0.9rem;
 }
