@@ -2,7 +2,13 @@
 // コンテナーは Bicep でも定義しているが、PR プレビュー環境ではインフラのデプロイが
 // 走らないため、初回アクセス時に createIfNotExists で作成する（ADR 0008）。
 // コンテナーの定義を変えるときは infra/main.bicep も合わせて変更する。
-import { CosmosClient, type Container, type Database } from '@azure/cosmos';
+import {
+  CosmosClient,
+  PartitionKeyDefinitionVersion,
+  PartitionKeyKind,
+  type Container,
+  type Database,
+} from '@azure/cosmos';
 import { requiredSetting } from './settings';
 
 export const CONTAINER_DEFINITIONS = {
@@ -32,7 +38,12 @@ export function getContainer(name: ContainerName): Promise<Container> {
     container = getDatabase()
       .containers.createIfNotExists({
         id: name,
-        partitionKey: { paths: [definition.partitionKey] },
+        // Bicep と同じ定義にする（ハッシュ、バージョン 2）
+        partitionKey: {
+          paths: [definition.partitionKey],
+          kind: PartitionKeyKind.Hash,
+          version: PartitionKeyDefinitionVersion.V2,
+        },
         ...('defaultTtl' in definition ? { defaultTtl: definition.defaultTtl } : {}),
       })
       .then((response) => response.container);

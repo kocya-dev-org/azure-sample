@@ -90,7 +90,10 @@ resource cosmosContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/con
     name: container.name
     properties: {
       resource: union(
-        { id: container.name, partitionKey: { paths: [container.partitionKey], kind: 'Hash' } },
+        {
+          id: container.name
+          partitionKey: { paths: [container.partitionKey], kind: 'Hash', version: 2 }
+        },
         container.defaultTtl == null ? {} : { defaultTtl: container.defaultTtl }
       )
     }
