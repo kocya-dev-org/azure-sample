@@ -146,6 +146,13 @@ export const api = {
     request<Backlog>('POST', `/products/${enc(productId)}/backlogs`, range),
   getBacklog: (productId: string, id: string) =>
     request<BacklogDetail>('GET', `/products/${enc(productId)}/backlogs/${enc(id)}`),
+
+  updateItemStatus: (productId: string, id: string, status: ItemStatus) =>
+    request<{ id: string; status: ItemStatus; doneAt: string | null }>(
+      'PATCH',
+      `/products/${enc(productId)}/items/${enc(id)}`,
+      { status },
+    ),
 };
 
 /**

@@ -1,5 +1,11 @@
 import { Fragment, useEffect, useState } from 'react';
-import { api, errorMessage, type BacklogDetail, type BacklogDetailEntry } from '../api/client';
+import {
+  api,
+  errorMessage,
+  type BacklogDetail,
+  type BacklogDetailEntry,
+  type ItemStatus,
+} from '../api/client';
 import { ErrorMessage, formatDate, formatScore, NoProductSelected } from '../components/common';
 import { useProducts } from '../context/ProductContext';
 import { Link } from '../router';
@@ -57,6 +63,25 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
     );
   }
 
+  async function changeStatus(entry: BacklogDetailEntry, status: ItemStatus) {
+    if (!productId) return;
+    setError('');
+    try {
+      const updated = await api.updateItemStatus(productId, entry.scoredItemId, status);
+      setBacklog(
+        (current) =>
+          current && {
+            ...current,
+            items: current.items.map((item) =>
+              item.scoredItemId === entry.scoredItemId ? { ...item, status: updated.status } : item,
+            ),
+          },
+      );
+    } catch (e) {
+      setError(errorMessage(e));
+    }
+  }
+
   const toggle = (id: string) =>
     setExpanded((current) => {
       const next = new Set(current);
@@ -90,6 +115,7 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
                   <th>項目名</th>
                   <th className="number">RICE スコア</th>
                   <th className="number">戦略合致度</th>
+                  <th>実装状況</th>
                   <th>根拠</th>
                 </tr>
               </thead>
@@ -107,6 +133,20 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
                         <td className="number">{formatScore(entry.riceScore)}</td>
                         <td className="number">{formatScore(entry.strategyFitScore)}</td>
                         <td>
+                          {entry.deleted ? (
+                            <span className="muted">—</span>
+                          ) : (
+                            <select
+                              aria-label={`${entry.title} の実装状況`}
+                              value={entry.status ?? 'open'}
+                              onChange={(e) => changeStatus(entry, e.target.value as ItemStatus)}
+                            >
+                              <option value="open">未対応</option>
+                              <option value="done">実装済み</option>
+                            </select>
+                          )}
+                        </td>
+                        <td>
                           <button
                             type="button"
                             className="link"
@@ -119,7 +159,7 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
                       </tr>
                       {open && (
                         <tr className="detail-row">
-                          <td colSpan={5}>
+                          <td colSpan={6}>
                             <Rationale entry={entry} />
                           </td>
                         </tr>

@@ -108,7 +108,7 @@
 
 ## Phase 2: Want 項目
 
-- [ ] 実装状況の編集
+- [x] 実装状況の編集
   - 対象ファイル: `src/api/src/functions/items.ts`（`PATCH`）とテスト, `src/frontend/src/pages/BacklogDetail.tsx`
   - 完了条件: 詳細画面で未対応と実装済みを切り替えられ、`doneAt` が記録される。
 - [ ] GitHub Issue の起票

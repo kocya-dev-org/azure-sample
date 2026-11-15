@@ -92,6 +92,25 @@ describe('バックログ', () => {
     expect(screen.getByText('戦略の根拠')).toBeInTheDocument();
   });
 
+  it('詳細画面で実装状況を変更できる', async () => {
+    const patched = vi.fn<(body: unknown) => Response>(() =>
+      json({ id: 'a1', status: 'done', doneAt: '2026-11-16T00:00:00.000Z' }),
+    );
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/backlogs/b1': detail,
+      'PATCH /api/products/p1/items/a1': patched,
+    });
+    openAt('/backlogs/b1');
+
+    const select = await screen.findByRole('combobox', { name: '提案A の実装状況' });
+    expect(select).toHaveValue('open');
+    fireEvent.change(select, { target: { value: 'done' } });
+
+    await waitFor(() => expect(select).toHaveValue('done'));
+    expect(patched).toHaveBeenCalledWith({ status: 'done' });
+  });
+
   it('開始日が終了日より後なら作成しない', async () => {
     const created = vi.fn<(body: unknown) => Response>(() => json(backlog, 201));
     mockFetch({

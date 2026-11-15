@@ -10,3 +10,4 @@ import './functions/products';
 import './functions/review';
 import './functions/proposals';
 import './functions/backlogs';
+import './functions/items';
