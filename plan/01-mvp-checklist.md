@@ -68,7 +68,7 @@
 - [x] 判定 API（ストリーム）
   - 対象ファイル: `src/api/src/functions/review.ts`, `review.test.ts`, `src/api/src/lib/prompts.ts`
   - 完了条件: Phase 1-1 で決めた方式でコメントを返す。reasoning effort が low で、出力上限トークン数が設定されている。Foundry の失敗時は 502 と固定メッセージを返す。
-- [ ] 提案 API（スコアリング）
+- [x] 提案 API（スコアリング）
   - 対象ファイル: `src/api/src/functions/proposals.ts`, `proposals.test.ts`
   - 完了条件:
     - 作成と更新で `json_schema` の構造化出力を使ってスコアリングし、`proposals` と `scoredItems` に分けて保存する。
