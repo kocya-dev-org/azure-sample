@@ -12,7 +12,8 @@
     "format:check": "oxfmt --check",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
-    "test": "vitest run"
+    "test": "vitest run",
+    "stage:api": "node scripts/stage-api.mjs"
   },
   "devDependencies": {
     "oxfmt": "^0.78.0",

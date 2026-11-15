@@ -31,6 +31,7 @@ Flyingfish は Azure 上で提供するクラウドサービスのプロダク�
 - `npm run typecheck`: 全 workspace の型チェック
 - `npm test`: vitest による全テストの実行
 - `npm run build`: 全 workspace のビルド
+- `npm run stage:api`: ビルド済み API を本番依存のみで `.deploy/api` にステージング（CI のデプロイ用。`scripts/stage-api.mjs`）
 
 変更後は `npm run format:check && npm run lint && npm run typecheck && npm test && npm run build` が通ることを確認してください。
 
@@ -54,5 +55,5 @@ Flyingfish は Azure 上で提供するクラウドサービスのプロダク�
 ## 変更時の指針
 
 - 別の言語が求められている場合を除き、名前、ユーザー向けの文言、コメント、ドキュメントは日本語で記述してください。
-- デプロイ対象ファイルを追加したり、コードを移動したりする場合は、必要に応じて `.github/workflows/deploy.yml` の対象パスとビルド・デプロイ先も更新してください。変更フィルターは `infra/**`、`src/api/**`、`src/frontend/**` とルートのツール設定（`package.json`、`package-lock.json`、`.node-version`、lint・format・テストの設定）を監視します。
+- デプロイ対象ファイルを追加したり、コードを移動したりする場合は、必要に応じて `.github/workflows/deploy.yml` の対象パスとビルド・デプロイ先も更新してください。変更フィルターは `infra/**`、`src/api/**`、`src/frontend/**` とルートのツール設定（`package.json`、`package-lock.json`、`.node-version`、lint・format・テストの設定、`scripts/**`）を監視します。
 - 依存関係は必要最小限にしてください。新しいフレームワーク、ライブラリ、デプロイ方式を導入する場合は、事前に ADR で理由を記録してください。

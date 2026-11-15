@@ -42,6 +42,7 @@ jobs:
               - '.oxlintrc.json'
               - '.oxfmtrc.json'
               - 'vitest.config.ts'
+              - 'scripts/**'
             infra:
               - 'infra/**'
             backend:
@@ -218,16 +219,7 @@ jobs:
           npm run build
       - name: Stage the managed Functions API with production dependencies only
         shell: bash
-        run: |
-          set -euo pipefail
-          # workspaces では依存がルートに hoist されるため、API の本番依存だけを src/api/node_modules に入れ直す
-          npm ci --omit=dev --workspace src/api --install-strategy=nested --ignore-scripts
-          mkdir -p .deploy/api
-          cp -r src/api/dist src/api/host.json src/api/package.json src/api/node_modules .deploy/api/
-          if find .deploy/api/dist -name '*.test.js' | grep -q .; then
-            echo 'Test files must not be deployed.' >&2
-            exit 1
-          fi
+        run: npm run stage:api
       - name: Deploy the prebuilt Static Web App and managed Functions API
         uses: Azure/static-web-apps-deploy@v1
         with:
