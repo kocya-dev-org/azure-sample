@@ -35,12 +35,42 @@ jobs:
           base: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before || github.ref }}
           token: ''
           filters: |
+            tooling: &tooling
+              - 'package.json'
+              - 'package-lock.json'
+              - '.node-version'
+              - '.oxlintrc.json'
+              - '.oxfmtrc.json'
+              - 'vitest.config.ts'
+              - 'scripts/**'
             infra:
               - 'infra/**'
             backend:
               - 'src/api/**'
+              - *tooling
             frontend:
               - 'src/frontend/**'
+              - *tooling
+
+  verify:
+    needs: changes
+    if: >-
+      !(github.event_name == 'pull_request' && github.event.action == 'closed')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
 
   validate-infra:
     needs: changes
@@ -158,10 +188,11 @@ jobs:
             --output none
 
   deploy-static-web-app:
-    needs: [changes, validate-infra, deploy-infrastructure, configure-foundry-settings]
+    needs: [changes, verify, validate-infra, deploy-infrastructure, configure-foundry-settings]
     if: >-
       always() && !cancelled() &&
       needs.changes.result == 'success' &&
+      needs.verify.result == 'success' &&
       needs.validate-infra.result != 'failure' &&
       needs.validate-infra.result != 'cancelled' &&
       ((github.event_name == 'pull_request' &&
@@ -178,15 +209,27 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
-      - name: Build and deploy the Static Web App and managed Functions API
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Build the frontend and API with Node.js 24
+        run: |
+          npm ci
+          npm run build
+      - name: Stage the managed Functions API with production dependencies only
+        shell: bash
+        run: npm run stage:api
+      - name: Deploy the prebuilt Static Web App and managed Functions API
         uses: Azure/static-web-apps-deploy@v1
         with:
           azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
           action: upload
-          app_location: src/frontend
-          api_location: src/api
+          app_location: src/frontend/dist
+          api_location: .deploy/api
           output_location: ''
-          api_build_command: npm run build
+          skip_app_build: true
+          skip_api_build: true
 
   close-static-web-app-preview:
     if: >-
