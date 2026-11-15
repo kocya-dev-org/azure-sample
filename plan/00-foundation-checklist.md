@@ -39,7 +39,7 @@ Node.js 24 / React SPA (Vite) / oxlint・oxfmt / vitest を導入し、SWA マ�
 
 ## Step 5: API（Node 24 化とテスト）
 
-- [ ] API の `engines`・`@types/node` を実行ランタイムに合わせ、`typecheck` / `test` を追加する
+- [x] API の `engines`・`@types/node` を実行ランタイムに合わせ、`typecheck` / `test` を追加する
   - 対象ファイル: `src/api/package.json`, `src/api/tsconfig.json`, `src/api/tsconfig.build.json`, `src/api/src/functions/goodbye.ts`（ハンドラーを export）, `src/api/src/functions/goodbye.test.ts`。`hello.ts` は Foundry 依存・`foundry.ts`/`data.ts` は import 時に必須設定を検査するため、雛形のテスト対象にしない
   - 完了条件: テストが `tsconfig.build.json` で除外され `dist/` に出力されない。`npm run build` と `npm test` が通る。初回の oxfmt 整形差分は機能変更と別コミットにしている。
 
