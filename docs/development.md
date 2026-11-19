@@ -89,10 +89,6 @@ func start
   3. そのディレクトリで `func start` を実行する。
 - **デプロイ用の成果物:** `npm run stage:batch` で `.deploy/batch` に作成します。`package.json` の `main` は `dist/src/batch.js` に書き換わります。
 
-## 動作確認用のエンドポイント
-
-`GET /api/diag/stream` は、HTTP ストリーミングがブラウザーまで届くかを確かめる一時的なエンドポイントです。1 秒ごとに 1 行ずつ返します。既定は `text/plain` で、`?format=sse` を付けると判定と同じ SSE 形式で返すので、2 つの届き方を比べられます。パディング量（`pad`）、件数（`count`）、間隔（`interval`）、ストリームの実装（`impl=node`）、`content-encoding: identity` の有無（`identity=1`）も切り替えられます（[API 仕様](api.md)）。PR プレビュー環境での確認が済んだら削除します（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)）。
-
 ## シークレット検査
 
 ```bash

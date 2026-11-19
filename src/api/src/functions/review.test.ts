@@ -7,7 +7,6 @@ vi.mock('../lib/foundry', () => ({ streamText: vi.fn<() => AsyncGenerator<string
 
 import { streamText } from '../lib/foundry';
 import * as store from '../lib/store';
-import { SSE_PADDING } from '../lib/sse';
 import { reviewProposalHandler, STREAM_ERROR_MESSAGE } from './review';
 
 const product = {
@@ -29,11 +28,9 @@ async function readAll(stream: ReadableStream<Uint8Array>): Promise<string> {
   }
 }
 
-/** パディングを除いた SSE の本文を、{ event, data } の列に分解する。 */
+/** SSE の本文を、{ event, data } の列に分解する。 */
 function parseEvents(text: string): { event: string; data: unknown }[] {
-  expect(text.startsWith(SSE_PADDING)).toBe(true);
   return text
-    .slice(SSE_PADDING.length)
     .split('\n\n')
     .filter(Boolean)
     .map((block) => {

@@ -9,14 +9,14 @@ import { streamText } from '../lib/foundry';
 import { jsonError, logError, readJsonObject } from '../lib/http';
 import { buildReviewPrompt } from '../lib/prompts';
 import { parseProposalInput } from '../lib/proposal-input';
-import { SSE_HEADERS, SSE_PADDING, sseEvent } from '../lib/sse';
+import { SSE_HEADERS, sseEvent } from '../lib/sse';
 import { getProduct } from '../lib/store';
 
 export const STREAM_ERROR_MESSAGE = '判定の途中でエラーが発生しました。もう一度お試しください。';
 
 /**
  * 差分テキストの列を SSE（text/event-stream）の ReadableStream に変換する。
- * 最初にパディングのコメント行を送り、差分ごとに delta、終わったら done を送る。
+ * 差分ごとに delta、終わったら done を送る。
  * 応答を返した後に失敗した場合は状態コードを変えられないため、error イベントで知らせて閉じる。
  */
 export function toEventStream(
@@ -32,7 +32,7 @@ export function toEventStream(
     async pull(controller) {
       if (!sentFirst) {
         sentFirst = true;
-        send(controller, SSE_PADDING + sseEvent('delta', { text: first }));
+        send(controller, sseEvent('delta', { text: first }));
         return;
       }
       try {

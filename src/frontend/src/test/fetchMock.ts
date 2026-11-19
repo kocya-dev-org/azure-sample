@@ -28,12 +28,11 @@ export function rawStream(chunks: string[]): Response {
   );
 }
 
-/** 判定 API と同じ形式の SSE 応答。パディングのコメント行から始まり、イベントごとに 1 チャンクで返す。 */
+/** 判定 API と同じ形式の SSE 応答。イベントごとに 1 チャンクで返す。 */
 export function eventStream(events: { event: string; data: unknown }[]): Response {
-  return rawStream([
-    ': padding\n\n',
-    ...events.map(({ event, data }) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
-  ]);
+  return rawStream(
+    events.map(({ event, data }) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+  );
 }
 
 /** delta イベントの列と、最後の done を返す SSE 応答。 */

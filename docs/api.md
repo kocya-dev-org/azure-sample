@@ -34,16 +34,12 @@
 | POST     | `/products/{productId}/proposals/review` | 判定。本文 `{ title, body }`。コメントを `text/event-stream`（SSE）のイベントで返す      |
 
 - 判定とスコアリングで Foundry の呼び出しに失敗した場合は 502 を返します。判定のコメントが 1 文字も返らなかった場合や、スコアリングの出力が値の範囲外だった場合も 502 です。
-- 判定のコメントは、Server-Sent Events（`text/event-stream; charset=utf-8`）で返します。最初の差分が届く前の失敗（400・404・502）は、ほかの API と同じく JSON のエラーで返します。
-  - 最初に、プロキシのバッファーを押し出すためのコメント行（`: ` で始まる約 2 KB の行）を 1 回送ります。クライアントは無視します。
+- 判定のコメントは、Server-Sent Events（`text/event-stream`）で返します。最初の差分が届く前の失敗（400・404・502）は、ほかの API と同じく JSON のエラーで返します。
   - `event: delta` / `data: {"text": "…"}`: コメントの差分です。届いた順につなげて表示します。
   - `event: done` / `data: {}`: 正常に終わったことを示します。
   - `event: error` / `data: {"message": "…"}`: 途中で失敗したことを示します。状態コードは変えられないため、イベントで知らせて終えます。
   - `data` はいつも 1 行の JSON です。`done` も `error` もないまま本文が終わった場合は、クライアントは途中で切れたものとして扱います。
-  - 応答ヘッダーは `content-type: text/event-stream`（charset などは付けない）、`cache-control: no-cache`、`x-accel-buffering: no` の 3 つだけです。Azure の前段のプロキシは Content-Type が完全に一致するときだけ逐次転送するとみられるためです（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)）。
-- 判定のストリームが SWA で使えない場合は、`review` を次の方式に変えます（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)）。
-  - `POST` で判定を開始し、`reviewId` を受け取る。
-  - `GET /products/{productId}/proposals/review/{reviewId}` で、途中のテキストと完了状態を取得する。
+  - 応答ヘッダーは `content-type: text/event-stream`（charset などは付けない）、`cache-control: no-cache`、`x-accel-buffering: no` の 3 つだけです。SWA の経路は、Content-Type が `text/event-stream` と完全に一致するときだけイベントを逐次転送します。charset を付けると、応答全体をためてから圧縮して返します（PR プレビュー環境で確認。[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)）。
 
 ## バックログ
 
@@ -72,9 +68,3 @@
   - 実装済みにするのは、Issue の `state_reason` が `completed` または `null` で閉じられた項目だけです。`doneAt` には Issue の `closed_at` を入れます。
   - エラーは `issues` と同じく、トークンが未設定なら 503、プロダクトがなければ 404、リポジトリが未登録なら 400 です。
   - 同じ処理（`src/api/src/lib/issueSync.ts`）を、独立した Function App のタイマー関数が毎日全プロダクトに対して実行します（[ADR 0010](../plan/decisions/0010-issue-status-sync-batch.md)）。
-
-## 一時的なエンドポイント
-
-| メソッド | ルート         | 説明                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| -------- | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET      | `/diag/stream` | HTTP ストリーミングの確認用。1 秒ごとに 1 行ずつ返す。既定は `text/plain`、`?format=sse` なら判定と同じ SSE 形式（パディング・`delta`・`done`）で返す。切り分け用のクエリ: `pad`（パディングのバイト数、0〜65536）、`count`（件数、1〜50）、`interval`（間隔のミリ秒、100〜5000）、`impl=node`（Node.js の `Readable` で返す）、`identity=1`（`content-encoding: identity` を付ける）、`legacy=1`（SSE を以前のヘッダー `text/event-stream; charset=utf-8` などで返す）。PR プレビュー環境での確認後に削除する（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)） |

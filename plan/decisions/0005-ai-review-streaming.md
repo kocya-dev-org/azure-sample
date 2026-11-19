@@ -1,7 +1,7 @@
 # 0005: 生成 AI による判定コメントのストリーミング方式
 
-- 状態: 検証待ち
-- 日付: 2026-11-15
+- 状態: 承認
+- 日付: 2026-11-15（承認 2026-11-19）
 
 ## 背景
 
@@ -14,7 +14,17 @@
 - SWA マネージド Functions の前段にあるプロキシが、レスポンスをまとめてから返す可能性がある。現時点では確認できていない。
 - マネージド Functions のリクエストには約 45 秒の制限時間がある。
 
-## 決定（暫定）
+## 結論（2026-11-19）
+
+判定コメントは Server-Sent Events で返す。応答ヘッダーは次の 3 つだけにする。
+
+- `content-type: text/event-stream`（charset なし）
+- `cache-control: no-cache`
+- `x-accel-buffering: no`
+
+SWA マネージド Functions の経路は、Content-Type が `text/event-stream` と完全に一致するときだけ、イベントを逐次転送する。`text/event-stream; charset=utf-8` や `text/plain` では、応答全体をためて Brotli で圧縮してから返す。経緯と測定結果は「結果・影響」に記録した。ポーリング（決定 3）は採用しない。
+
+## 決定（当初の暫定案）
 
 1. まず HTTP ストリーミングを試す。`POST /api/products/{productId}/proposals/review` が Foundry のストリームを `text/plain` のチャンクとしてそのまま中継し、クライアントは `response.body.getReader()` で読みながら表示する。
 2. 実装の前に、固定テキストを 1 秒ごとに返す検証用エンドポイントを PR プレビュー環境にデプロイする。ブラウザーにチャンクが少しずつ届くかを確認する。
@@ -25,7 +35,7 @@
 
 ## 検証項目
 
-- [ ] PR プレビュー環境で、検証用エンドポイントのチャンクが少しずつ届く
+- [x] PR プレビュー環境で、検証用エンドポイントのチャンクが少しずつ届く（`text/event-stream` ちょうどの場合だけ）
 - [ ] Foundry の `gpt-5-mini` デプロイで `stream: true` が使える
 - [ ] 判定が 45 秒以内に終わる
 
@@ -90,4 +100,21 @@ Node.js v4 の HTTP ストリーミングに SSE を載せることはできる�
 - Azure Web App で SSE が逐次届かなかった事例で、`Content-Type` を `text/event-stream` ちょうど（charset なし）にし、`Cache-Control: no-cache` と `X-Accel-Buffering: no` を付けると届いたという報告がある（https://stackoverflow.com/questions/78584265/fastapi-sse-working-locally-but-not-in-azure-web-app ）。Azure の前段のプロキシは、Content-Type が完全に一致するときだけ逐次転送に切り替えるとみられる。
 - そこで `SSE_HEADERS`（`src/api/src/lib/sse.ts`）を、この 3 つだけにした。判定 API も同じヘッダーになる。比較のため、`/api/diag/stream?format=sse&legacy=1` で以前のヘッダーを返せるようにした。
 - 判断基準: `?format=sse` が約 1000 ms 間隔で届き、`legacy=1` は 1 チャンクのままなら、完全一致が条件だったと確定する。そのうえで、提案フォームでも少しずつ表示されるかを確かめる。どちらも 1 チャンクなら、ポーリング（決定 3）に進む。
-- 測定結果: （プレビュー環境での測定後に追記する）
+- 測定結果（2026-11-19、PR #16 のプレビュー環境、ユーザーによる確認）: Content-Type の完全一致が条件だった。
+
+  | ケース                                 | 受け取った content-type            | content-encoding | 受信                                                       |
+  | -------------------------------------- | ---------------------------------- | ---------------- | ---------------------------------------------------------- |
+  | sse（新しいヘッダー、パディング 2 KB） | `text/event-stream`                | なし             | 101 ms / 1100 / 2103 / 3103 / 4117 / 5103 ms の 6 チャンク |
+  | sse + `legacy=1`（以前のヘッダー）     | `text/event-stream; charset=utf-8` | br               | 5082 ms に 1 チャンク                                      |
+  | sse + パディングなし（`pad=0`）        | `text/event-stream`                | なし             | 79 ms / 1086 / 2085 / 3085 / 4085 / 5086 ms の 6 チャンク  |
+  | sse + `identity=1`                     | `text/event-stream`                | identity         | 96 ms / 1231 / 2091 / 3090 / 4090 / 5085 ms の 6 チャンク  |
+  - Content-Type が `text/event-stream` ちょうどなら、SWA の経路はイベントを約 1 秒ごとに逐次転送し、圧縮もかけない。charset が付くと、応答全体をためて Brotli で圧縮する。
+  - パディングがなくても逐次届く。
+  - 残りの確認: 提案フォームの判定コメントが少しずつ表示されること。
+
+### 後片付け（2026-11-19）
+
+- 検証用エンドポイント `GET /api/diag/stream` を削除した。
+- 最初に送っていた約 2 KB のパディング（コメント行）は、なくても逐次届いたため削除した。クライアントのパーサーは、SSE の仕様どおりコメント行を読み飛ばす処理を残している。
+- 比較用に残していた以前のヘッダー（`LEGACY_SSE_HEADERS`）を削除した。
+- `app.setup({ enableHttpStream: true })` は SSE に必要なので残す。
