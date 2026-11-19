@@ -1,17 +1,18 @@
 # アーキテクチャ
 
-構成図は [architecture.drawio](./architecture.drawio) を参照してください（図は土台構築時点のままで、MVP の内容は未反映です）。
+構成図は [architecture.drawio](./architecture.drawio) を参照してください（図は土台構築時点の内容に日次バッチと GitHub を追記したもので、MVP のその他の内容は未反映です）。
 
 ## 構成
 
-| 要素                 | 構成                                                                                                                                                                                          | リージョン                                                 |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| Static Web Apps      | Free レベル。React SPA とマネージド Functions を同一ホストで提供                                                                                                                              | マネージド Functions バックエンドは East Asia (`eastasia`) |
-| マネージド Functions | Azure Functions v4 / TypeScript。HTTP トリガーのみ。HTTP ストリーミングを有効化                                                                                                               | East Asia                                                  |
-| Cosmos DB for NoSQL  | Free Tier。データベース `flyingfish` に共有スループット 400 RU/s、アカウント上限 1,000 RU/s。コンテナー `products`・`proposals`・`scoredItems`・`backlogs`（[データモデル](./data-model.md)） | Japan East (`japaneast`)                                   |
-| Blob Storage         | StorageV2 / Standard_LRS。コンテナー `objects` はプライベート。MVP では使っていない                                                                                                           | Japan East                                                 |
-| Microsoft Foundry    | OpenAI 互換 API（既定モデル `gpt-5-mini`）。提案の判定（ストリーム）とスコアリング（構造化出力）に使う                                                                                        | —                                                          |
-| GitHub REST API      | バックログ項目の Issue 起票（任意。トークンが未設定なら無効）                                                                                                                                 | —                                                          |
+| 要素                    | 構成                                                                                                                                                                                                                                                                                                    | リージョン                                                 |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Static Web Apps         | Free レベル。React SPA とマネージド Functions を同一ホストで提供                                                                                                                                                                                                                                        | マネージド Functions バックエンドは East Asia (`eastasia`) |
+| マネージド Functions    | Azure Functions v4 / TypeScript。HTTP トリガーのみ。HTTP ストリーミングを有効化                                                                                                                                                                                                                         | East Asia                                                  |
+| Cosmos DB for NoSQL     | Free Tier。データベース `flyingfish` に共有スループット 400 RU/s、アカウント上限 1,000 RU/s。コンテナー `products`・`proposals`・`scoredItems`・`backlogs`（[データモデル](./data-model.md)）                                                                                                           | Japan East (`japaneast`)                                   |
+| Blob Storage            | StorageV2 / Standard_LRS。コンテナー `objects` はプライベート。MVP では使っていない                                                                                                                                                                                                                     | Japan East                                                 |
+| Microsoft Foundry       | OpenAI 互換 API（既定モデル `gpt-5-mini`）。提案の判定（ストリーム）とスコアリング（構造化出力）に使う                                                                                                                                                                                                  | —                                                          |
+| GitHub REST API         | バックログ項目の Issue 起票と Issue 状態の確認（任意。トークンが未設定なら無効）                                                                                                                                                                                                                        | —                                                          |
+| 日次バッチ Function App | Flex Consumption（FC1）/ Node.js 24。タイマー関数 `syncIssueStatus` だけを動かし、毎日 18:00 UTC に Issue の状態をバックログ項目へ反映する。ホスト用ストレージは Blob Storage のアカウントを共有する（コンテナー `batch-deployments`）（[ADR 0010](../plan/decisions/0010-issue-status-sync-batch.md)） | Japan East                                                 |
 
 - Cosmos DB と Blob Storage はパブリックネットワークアクセスを有効にしています。Cosmos DB はローカルキー認証が有効です。
 - Free Tier の Cosmos DB はサブスクリプションごとに 1 アカウントまでです。
@@ -31,6 +32,14 @@
 | `FOUNDRY_ENDPOINT`         | ○    | 同上（ワークフローに記載）                                                        |
 | `FOUNDRY_MODEL`            | —    | 同上（`gpt-5-mini`）                                                              |
 | `ISSUE_GITHUB_TOKEN`       | —    | 同上。リポジトリ secret `ISSUE_GITHUB_TOKEN`。空なら警告を出して設定しない        |
+
+日次バッチの Function App のアプリ設定は、すべて Bicep（`infra/main.bicep` の `siteConfig.appSettings`）で定義します。
+
+- `AzureWebJobsStorage`・`DEPLOYMENT_STORAGE_CONNECTION_STRING`・`COSMOS_CONNECTION_STRING`: デプロイ時にアカウントキーから組み立てる
+- `COSMOS_DATABASE_ID`
+- `ISSUE_GITHUB_TOKEN`: `@secure()` パラメーター `issueGithubToken`。ジョブ `deploy-infrastructure` がリポジトリ secret から渡し、空なら空のまま
+
+CLI で設定を足すと、Bicep の再デプロイで消えます。トークンを更新したら、インフラのデプロイを再実行してください。
 
 値をソースに記載してはいけません。以前の `COSMOS_CONTAINER_ID`・`BLOB_CONNECTION_STRING`・`BLOB_CONTAINER_NAME` はワークフローで設定しなくなりました。既存の値は残っていても使われません。
 
@@ -56,7 +65,9 @@
 エンドポイントは [API 仕様](./api.md) を参照してください。
 
 - エントリーポイントは `src/api/src/index.ts` です（`package.json` の `main` は `dist/src/index.js`）。`app.setup({ enableHttpStream: true })` を呼んでから、`src/api/src/functions/` の各ハンドラーを import します。新しいハンドラーを追加したら、ここに import を追加してください。
-- 共通モジュールは `src/api/src/lib/` にあります（Cosmos DB アクセス、Foundry 呼び出し、プロンプト、RICE の検証と計算、GitHub 起票、HTTP 共通処理）。
+- 共通モジュールは `src/api/src/lib/` にあります（Cosmos DB アクセス、Foundry 呼び出し、プロンプト、RICE の検証と計算、GitHub 起票と状態取得、Issue 状態の同期、HTTP 共通処理）。
+- 日次バッチは同じ `src/api` パッケージを、別のエントリー `src/api/src/batch.ts` で動かします。読み込むのはタイマー関数（`src/api/src/batch/`）だけです。
+  - SWA のマネージド Functions は HTTP トリガーしか使えません。そのため `src/api/src/index.ts` からはタイマー関数を import しないでください。
 
 ## フロントエンド
 
@@ -66,4 +77,7 @@ React + Vite の SPA です。UI は shadcn/ui（Tailwind CSS v4 + Radix）の�
 
 - CI（GitHub Actions、Node.js 24）でフロントエンドと API を事前にビルドし、`Azure/static-web-apps-deploy` に `skip_app_build: true` と `skip_api_build: true` を指定してビルド済み成果物をアップロードします。SWA 側のビルド (Oryx) は使いません。
 - API は `npm run stage:api`（`scripts/stage-api.mjs`）で `.deploy/api` にステージングしてからアップロードします。workspaces では依存がルートに hoist されるため、lockfile で解決済みの本番依存ツリー（`npm ls --omit=dev --workspace src/api`）だけを `dist/`・`host.json`・`package.json` と一緒にコピーします。テストファイルが含まれていないこともこの段階で検査します。
+- 日次バッチは `npm run stage:batch` で `.deploy/batch` にステージングし、ジョブ `deploy-batch-functions` が `Azure/functions-action`（`sku: flexconsumption`）でデプロイします。
+  - ステージングの手順は API と同じです。違いは、`package.json` の `main` を `dist/src/batch.js` に書き換えることだけです。
+  - デプロイは main への push と手動実行のときだけ行い、PR ではデプロイしません。
 - API 実行ランタイムは `apiRuntime` で指定します。マネージド Functions が `node:24` に対応していないため、API のみ `node:22` です（[ADR 0001](../plan/decisions/0001-node24-on-managed-functions.md)）。

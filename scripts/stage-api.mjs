@@ -1,4 +1,6 @@
 // SWA マネージド Functions にアップロードする API 成果物を .deploy/api に作成する。
+// 引数に batch を渡すと、独立 Function App（日次バッチ、ADR 0010）用の成果物を .deploy/batch に作成し、
+// package.json の main をバッチ用エントリー（dist/src/batch.js）に書き換える。
 // npm workspaces では依存がルートの node_modules に hoist されるため、
 // lockfile で解決済みの本番依存ツリー（npm ls --omit=dev）だけをコピーする。
 // 事前に `npm ci` と `npm run build` を実行しておくこと。
@@ -8,15 +10,27 @@ import {
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   realpathSync,
   rmSync,
   statSync,
+  writeFileSync,
 } from 'node:fs';
 import path from 'node:path';
 
+const TARGETS = {
+  api: { outDir: 'api', main: 'dist/src/index.js' },
+  batch: { outDir: 'batch', main: 'dist/src/batch.js' },
+};
+const targetName = process.argv[2] ?? 'api';
+const target = TARGETS[targetName];
+if (!target) {
+  throw new Error(`不明なステージング対象です: ${targetName}（api または batch）`);
+}
+
 const root = process.cwd();
 const apiDir = path.join(root, 'src', 'api');
-const outDir = path.join(root, '.deploy', 'api');
+const outDir = path.join(root, '.deploy', target.outDir);
 const outModules = path.join(outDir, 'node_modules');
 
 if (!existsSync(path.join(apiDir, 'dist'))) {
@@ -28,6 +42,17 @@ mkdirSync(outModules, { recursive: true });
 for (const entry of ['dist', 'host.json', 'package.json']) {
   cpSync(path.join(apiDir, entry), path.join(outDir, entry), { recursive: true });
 }
+if (!existsSync(path.join(outDir, target.main))) {
+  throw new Error(`エントリーポイント ${target.main} がありません。`);
+}
+const packageJsonPath = path.join(outDir, 'package.json');
+const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'));
+packageJson.main = target.main;
+writeFileSync(
+  packageJsonPath,
+  `${JSON.stringify(packageJson, null, 2)}
+`,
+);
 
 const listed = execSync('npm ls --omit=dev --workspace src/api --all --parseable', {
   cwd: root,
@@ -76,5 +101,5 @@ if (tests.length > 0) {
 }
 
 console.log(
-  `API を ${path.relative(root, outDir)} にステージングしました（依存 ${packages.length} 件）。`,
+  `${targetName} を ${path.relative(root, outDir)} にステージングしました（依存 ${packages.length} 件）。`,
 );

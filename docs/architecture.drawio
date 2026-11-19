@@ -1,6 +1,6 @@
 <mxfile host="app.diagrams.net">
   <diagram id="flyingfish-architecture" name="Flyingfish アーキテクチャ">
-    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1200" pageHeight="800" math="0" shadow="0">
+    <mxGraphModel dx="1200" dy="800" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1300" pageHeight="800" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -33,6 +33,26 @@
         </mxCell>
         <mxCell id="edge_settings" value="デプロイ時に Azure CLI で設定" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#D6B656;fontSize=11;" edge="1" parent="1" source="settings" target="swa">
           <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="batch" value="&lt;b&gt;Azure Functions (日次バッチ)&lt;/b&gt;&lt;br&gt;Flex Consumption / Japan East&lt;br&gt;Node.js 24&lt;br&gt;Timer: syncIssueStatus (毎日 18:00 UTC)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8CECC;strokeColor=#B85450;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="960" y="250" width="260" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="github" value="&lt;b&gt;GitHub REST API&lt;/b&gt;&lt;br&gt;Issue の起票・状態取得" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F5F5;strokeColor=#666666;fontSize=12;" vertex="1" parent="1">
+          <mxGeometry x="960" y="520" width="260" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_batch_cosmos" value="HTTPS / SQL API" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#107C10;" edge="1" parent="1" source="batch" target="cosmos">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_batch_storage" value="ホスト用ストレージ / デプロイ (batch-deployments)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#82B366;fontSize=11;" edge="1" parent="1" source="batch" target="storage">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_batch_github" value="Issue 状態の確認" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="batch" target="github">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge_swa_github" value="Issue 起票 / 手動の状態更新" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeWidth=2;strokeColor=#666666;" edge="1" parent="1" source="swa" target="github">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points"><mxPoint x="315" y="680" /><mxPoint x="1090" y="680" /></Array>
+          </mxGeometry>
         </mxCell>
       </root>
     </mxGraphModel>

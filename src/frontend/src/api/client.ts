@@ -95,6 +95,12 @@ export type IssueResult =
 
 export const MAX_ISSUES_PER_REQUEST = 10;
 
+export interface IssueSyncResult {
+  checked: number;
+  updated: { id: string; doneAt: string }[];
+  failed: number;
+}
+
 export interface MonthlyCount {
   month: string;
   proposals: number;
@@ -172,6 +178,8 @@ export const api = {
     request<{ results: IssueResult[] }>('POST', `/products/${enc(productId)}/issues`, {
       itemIds,
     }),
+  syncIssueStatus: (productId: string) =>
+    request<IssueSyncResult>('POST', `/products/${enc(productId)}/issues/sync`),
 
   getDashboard: (productId: string) =>
     request<Dashboard>('GET', `/products/${enc(productId)}/dashboard`),

@@ -5,6 +5,7 @@ import {
   CircleDotIcon,
   ExternalLinkIcon,
   Loader2Icon,
+  RefreshCwIcon,
   UserIcon,
 } from 'lucide-react';
 import { Fragment, useEffect, useState } from 'react';
@@ -79,6 +80,7 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [issuing, setIssuing] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [notice, setNotice] = useState('');
 
   useEffect(() => {
@@ -166,6 +168,34 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
     }
   }
 
+  async function syncIssueStatus() {
+    if (!productId) return;
+    setSyncing(true);
+    setError('');
+    setNotice('');
+    try {
+      const result = await api.syncIssueStatus(productId);
+      const done = new Set(result.updated.map((u) => u.id));
+      setBacklog(
+        (current) =>
+          current && {
+            ...current,
+            items: current.items.map((item) =>
+              done.has(item.scoredItemId) ? { ...item, status: 'done' } : item,
+            ),
+          },
+      );
+      const summary = `Issue ${result.checked} 件を確認し、${result.updated.length} 件を実装済みにしました（失敗 ${result.failed} 件）。`;
+      setNotice(summary);
+      if (result.failed > 0) toast.warning(summary);
+      else toast.success(summary);
+    } catch (e) {
+      setError(errorMessage(e));
+    } finally {
+      setSyncing(false);
+    }
+  }
+
   const toggleIn = (setter: typeof setExpanded) => (id: string) =>
     setter((current) => {
       const next = new Set(current);
@@ -179,9 +209,9 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
   const issueDisabledReason = !backlog
     ? ''
     : !backlog.githubEnabled
-      ? 'GitHub 連携が未設定のため、Issue を起票できません。'
+      ? 'GitHub 連携が未設定のため、Issue の起票と状態の更新はできません。'
       : !backlog.hasRepository
-        ? 'プロダクト情報にリポジトリが登録されていないため、Issue を起票できません。'
+        ? 'プロダクト情報にリポジトリが登録されていないため、Issue の起票と状態の更新はできません。'
         : '';
   const canIssue = !!backlog && !issueDisabledReason;
 
@@ -206,15 +236,29 @@ export function BacklogDetailPage({ backlogId }: { backlogId: string }) {
         }
         actions={
           backlog && (
-            <Button
-              onClick={createIssues}
-              disabled={
-                !canIssue || checked.size === 0 || checked.size > MAX_ISSUES_PER_REQUEST || issuing
-              }
-            >
-              {issuing ? <Loader2Icon className="animate-spin" /> : <CircleDotIcon />}
-              {issuing ? '起票中…' : 'Issue 起票'}
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={syncIssueStatus}
+                disabled={!canIssue || syncing}
+                title="起票済みの Issue が完了（completed）で閉じられていれば、項目を実装済みにします"
+              >
+                {syncing ? <Loader2Icon className="animate-spin" /> : <RefreshCwIcon />}
+                {syncing ? '更新中…' : 'Issue 状態を更新'}
+              </Button>
+              <Button
+                onClick={createIssues}
+                disabled={
+                  !canIssue ||
+                  checked.size === 0 ||
+                  checked.size > MAX_ISSUES_PER_REQUEST ||
+                  issuing
+                }
+              >
+                {issuing ? <Loader2Icon className="animate-spin" /> : <CircleDotIcon />}
+                {issuing ? '起票中…' : 'Issue 起票'}
+              </Button>
+            </div>
           )
         }
       >

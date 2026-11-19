@@ -51,15 +51,21 @@
 
 ## Phase 2（Want）
 
-| メソッド | ルート                             | 説明                                                                                       |
-| -------- | ---------------------------------- | ------------------------------------------------------------------------------------------ |
-| PATCH    | `/products/{productId}/items/{id}` | 実装状況の変更。本文 `{ status }`（`open` または `done`）                                  |
-| POST     | `/products/{productId}/issues`     | Issue 起票。本文 `{ itemIds }`。項目ごとの結果（起票した、起票済みでスキップ、失敗）を返す |
-| GET      | `/products/{productId}/dashboard`  | 集計。現在の提案数・Issue 起票数・実装済み数、直近 6 か月の月別推移、`githubEnabled`       |
+| メソッド | ルート                              | 説明                                                                                        |
+| -------- | ----------------------------------- | ------------------------------------------------------------------------------------------- |
+| PATCH    | `/products/{productId}/items/{id}`  | 実装状況の変更。本文 `{ status }`（`open` または `done`）                                   |
+| POST     | `/products/{productId}/issues`      | Issue 起票。本文 `{ itemIds }`。項目ごとの結果（起票した、起票済みでスキップ、失敗）を返す  |
+| POST     | `/products/{productId}/issues/sync` | Issue 状態の同期。起票済みで未対応の項目の Issue を確認し、完了で閉じていれば実装済みにする |
+| GET      | `/products/{productId}/dashboard`   | 集計。現在の提案数・Issue 起票数・実装済み数、直近 6 か月の月別推移、`githubEnabled`        |
 
 - `issues` の `itemIds` は 1〜10 件です。項目ごとに起票し、成功したらすぐに保存します。起票済みの項目はスキップするため、再実行しても二重に起票しません。
 - `issues` は、アプリケーション設定 `ISSUE_GITHUB_TOKEN` が未設定なら 503（「GitHub 連携が未設定です」）を返します。プロダクトにリポジトリが登録されていなければ 400 を返します。
 - `githubEnabled` は、トークンが設定されているかどうかの真偽値です。トークンの値は返しません。
+- `issues/sync` は本文なしで呼びます。
+  - 応答は `{ checked, updated: [{ id, doneAt }], failed }` です。順に、確認した件数、実装済みにした項目、確認または保存に失敗した件数を表します。
+  - 実装済みにするのは、Issue の `state_reason` が `completed` または `null` で閉じられた項目だけです。`doneAt` には Issue の `closed_at` を入れます。
+  - エラーは `issues` と同じく、トークンが未設定なら 503、プロダクトがなければ 404、リポジトリが未登録なら 400 です。
+  - 同じ処理（`src/api/src/lib/issueSync.ts`）を、独立した Function App のタイマー関数が毎日全プロダクトに対して実行します（[ADR 0010](../plan/decisions/0010-issue-status-sync-batch.md)）。
 
 ## 一時的なエンドポイント
 

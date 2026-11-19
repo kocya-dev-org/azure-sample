@@ -14,6 +14,7 @@
     "build": "npm run build --workspaces --if-present",
     "test": "vitest run",
     "stage:api": "node scripts/stage-api.mjs",
+    "stage:batch": "node scripts/stage-api.mjs batch",
     "check:secrets": "node scripts/check-secrets.mjs src/frontend/dist src/api/dist"
   },
   "devDependencies": {

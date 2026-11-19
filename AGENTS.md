@@ -11,13 +11,13 @@ Flyingfish は Azure 上で提供するクラウドサービスのプロダク�
 - `package.json`（ルート）: npm workspaces（`src/frontend`、`src/api`）の定義と、lint・format・型チェック・テスト・ビルドの共通スクリプトを持ちます。lockfile はルートの `package-lock.json` に一本化します。
 - `.node-version`: 開発・CI で使う Node.js のメジャーバージョン（`24`）です。
 - `.oxlintrc.json`・oxfmt 設定・`vitest.config.ts`（ルート）: lint・format・テストの共通設定です。vitest は `test.projects` で frontend（jsdom）と api（node）を束ねます。
-- `infra/main.bicep`: リソースグループをスコープとするデプロイ定義です。Cosmos DB とアプリケーション用 Blob Storage は Japan East (`japaneast`)、SWA マネージド Functions バックエンドは、マネージド API がサポートされているリージョンの East Asia (`eastasia`) に配置します。Free レベルの Static Web App、Free Tier の Cosmos DB アカウント、アプリケーションデータ用ストレージアカウントを作成します。
+- `infra/main.bicep`: リソースグループをスコープとするデプロイ定義です。Cosmos DB とアプリケーション用 Blob Storage は Japan East (`japaneast`)、SWA マネージド Functions バックエンドは、マネージド API がサポートされているリージョンの East Asia (`eastasia`) に配置します。Free レベルの Static Web App、Free Tier の Cosmos DB アカウント、アプリケーションデータ用ストレージアカウントと、日次バッチ（Issue 状態の同期）用の Flex Consumption の Function App（Japan East。ホスト用ストレージはアプリケーションデータ用ストレージアカウントを共有）を作成します。
 - Cosmos DB と Blob Storage ではパブリックネットワークアクセスを有効にします。Blob コンテナーはプライベートのままにします（Blob Storage は MVP では使っていません）。Cosmos DB のアカウント接続文字列は、SWA API のアプリケーション設定に保存して使用します。この接続文字列を使う構成では、Cosmos DB のローカルキー認証を有効にします。Cosmos DB のコンテナーは `products`・`proposals`・`scoredItems`・`backlogs` で、Bicep の定義と `src/api/src/lib/cosmos.ts` の定義を一致させます（API が初回アクセス時にも作成します。ADR 0008）。
 - Cosmos DB では Free Tier を使用し、共有スループット 400 RU/s のデータベースを設定します。アカウントのスループット上限は 1,000 RU/s です。Free Tier を利用できるのはサブスクリプションごとに 1 アカウントまでで、対象は最大 1,000 RU/s、ストレージ 25 GB です。
 - `infra/environments/dev.bicepparam`: `main.bicep` 用の開発環境パラメーターです。Japan East のデータ配置先と `dev` タグを含みます。
 - `src/frontend/`: React + TypeScript の SPA（Vite プロジェクト）です。エントリーは `index.html` と `src/main.tsx`、ビルド出力は `src/frontend/dist/` です。UI は shadcn/ui（Tailwind CSS v4 + Radix、ADR 0009）で、生成した部品は `src/components/ui/`、テーマトークンとエントリーの CSS は `src/index.css`、shadcn の設定は `components.json` にあります。`@/` は `src/frontend/src/` を指す alias です（`tsconfig.json` と `vite.config.ts`）。テーマ（ライト・ダーク・システム）は `src/context/ThemeContext.tsx` で管理します。`public/staticwebapp.config.json` はビルド時に `dist/` へ同梱され、マネージド Functions のランタイム（`platform.apiRuntime`）、SWA のルート認証、SPA 用の `navigationFallback` を設定します。
-- `src/api/`: SWA マネージド Azure Functions v4 API です。TypeScript でビルドします。HTTP ハンドラーは `src/api/src/functions/`、共通モジュール（Cosmos DB、Foundry、プロンプト、RICE、GitHub、HTTP 共通処理）は `src/api/src/lib/` にあります。マネージド Functions がサポートするのは HTTP トリガーのみのため、このプロジェクトにはタイマートリガーはありません。Microsoft Foundry の設定（`FOUNDRY_*`）と GitHub Issue 起票用のトークン（`ISSUE_GITHUB_TOKEN`、任意）も SWA API のアプリケーション設定から読み込みます。設定は import 時ではなく使うときに検査します。
-- `.github/workflows/deploy.yml`: パスフィルター付きの Bicep 検証とデプロイ、SWA API のアプリケーション設定、Node.js 24 での検証（format・lint・型チェック・テスト・ビルド）、ビルド済みのフロントエンドとマネージド API の一括デプロイ、PR プレビュー環境の作成とクローズを定義します。
+- `src/api/`: SWA マネージド Azure Functions v4 API です。TypeScript でビルドします。HTTP ハンドラーは `src/api/src/functions/`、共通モジュール（Cosmos DB、Foundry、プロンプト、RICE、GitHub、HTTP 共通処理）は `src/api/src/lib/` にあります。マネージド Functions がサポートするのは HTTP トリガーのみのため、タイマー関数（`src/api/src/batch/`）は SWA 用エントリーの `src/api/src/index.ts` から import せず、バッチ用エントリーの `src/api/src/batch.ts` から読み込みます。バッチは独立した Function App（Flex Consumption、Japan East）にデプロイします（`npm run stage:batch`、ADR 0010）。Microsoft Foundry の設定（`FOUNDRY_*`）と GitHub Issue 起票用のトークン（`ISSUE_GITHUB_TOKEN`、任意）も SWA API のアプリケーション設定から読み込みます。設定は import 時ではなく使うときに検査します。
+- `.github/workflows/deploy.yml`: パスフィルター付きの Bicep 検証とデプロイ、SWA API のアプリケーション設定、Node.js 24 での検証（format・lint・型チェック・テスト・ビルド）、ビルド済みのフロントエンドとマネージド API の一括デプロイ、日次バッチの Function App のデプロイ、PR プレビュー環境の作成とクローズを定義します。
 - `plan/`: 作業手順、チェックリスト、技術的な意思決定記録（`plan/decisions/` の ADR）を置きます。
 - `docs/`: アプリケーションの仕様（アーキテクチャ、技術スタック、開発手順、機能仕様）を置きます。`docs/architecture.drawio` は構成図です。
 
@@ -32,6 +32,7 @@ Flyingfish は Azure 上で提供するクラウドサービスのプロダク�
 - `npm test`: vitest による全テストの実行
 - `npm run build`: 全 workspace のビルド
 - `npm run stage:api`: ビルド済み API を本番依存のみで `.deploy/api` にステージング（CI のデプロイ用。`scripts/stage-api.mjs`）
+- `npm run stage:batch`: 日次バッチ用の Function App の成果物を `.deploy/batch` にステージング（`main` を `dist/src/batch.js` に書き換える）
 - `npm run check:secrets`: ビルド成果物（`src/frontend/dist`・`src/api/dist`）にシークレットらしき文字列がないかを検査（`scripts/check-secrets.mjs`）
 
 変更後は `npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run check:secrets` が通ることを確認してください。
