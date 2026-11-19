@@ -68,6 +68,53 @@ describe('提案一覧', () => {
     expect(remove).toBeDisabled();
   });
 
+  it('既定はカード表示で、トグルでリスト表示に切り替えて選択を保つ', async () => {
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/proposals': [proposal('a1', '提案A'), proposal('a2', '提案B')],
+    });
+    openAt('/proposals');
+
+    expect(await screen.findByRole('list', { name: '提案の一覧' })).toBeInTheDocument();
+    const cardsButton = screen.getByRole('button', { name: 'カード表示' });
+    const listButton = screen.getByRole('button', { name: 'リスト表示' });
+    expect(cardsButton).toHaveAttribute('aria-pressed', 'true');
+    expect(listButton).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(screen.getByRole('checkbox', { name: '提案A を選択' }));
+
+    fireEvent.click(listButton);
+
+    expect(screen.queryByRole('list', { name: '提案の一覧' })).not.toBeInTheDocument();
+    const table = screen.getByRole('table', { name: '提案の一覧' });
+    const rows = within(table).getAllByRole('row');
+    expect(rows).toHaveLength(3);
+    const first = within(rows[1]);
+    expect(first.getByText('提案A')).toBeInTheDocument();
+    expect(first.getByText('提案A の内容')).toBeInTheDocument();
+    expect(first.getByText('40')).toBeInTheDocument();
+    expect(first.getByText('75')).toBeInTheDocument();
+    expect(first.getByRole('checkbox', { name: '提案A を選択' })).toBeChecked();
+    expect(listButton).toHaveAttribute('aria-pressed', 'true');
+    expect(window.localStorage.getItem('flyingfish.proposalsLayout')).toBe('list');
+
+    fireEvent.click(cardsButton);
+    expect(screen.getByRole('list', { name: '提案の一覧' })).toBeInTheDocument();
+  });
+
+  it('前回選んだリスト表示を覚えていて、行の鉛筆アイコンで編集に移る', async () => {
+    window.localStorage.setItem('flyingfish.proposalsLayout', 'list');
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/proposals': [proposal('a1', '提案A'), proposal('a2', '提案B')],
+      'GET /api/products/p1/proposals/a2': proposal('a2', '提案B'),
+    });
+    openAt('/proposals');
+
+    expect(await screen.findByRole('table', { name: '提案の一覧' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '提案B を編集' }));
+    expect(window.location.pathname).toBe('/proposals/a2/edit');
+  });
+
   it('カードの鉛筆アイコンでその提案の編集フォームに移る', async () => {
     mockFetch({
       'GET /api/products': [PRODUCT],

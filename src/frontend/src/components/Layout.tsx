@@ -155,7 +155,7 @@ function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
 export function Layout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { path } = useRouter();
-  // 提案一覧は固定幅のカードを並べるので、画面が広いほど並ぶ枚数を増やせるよう幅を制限しない。
+  // 提案一覧のカード表示は固定幅のカードを並べるので、画面が広いほど並ぶ枚数を増やせるよう幅を制限しない（リスト表示も同じ幅）。
   const wide = matchPath('/proposals', path) !== null;
   return (
     <div className="min-h-screen md:grid md:grid-cols-[15rem_1fr]">
