@@ -29,15 +29,15 @@ Cosmos DB for NoSQL のデータベース `flyingfish`（共有スループッ�
 
 提案の元データです。入力された内容だけを持ち、スコアは持ちません。
 
-| フィールド  | 型     | 説明                                                        |
-| ----------- | ------ | ----------------------------------------------------------- |
-| `id`        | string | 提案 ID                                                     |
-| `productId` | string | プロダクト ID                                               |
-| `title`     | string | タイトル                                                    |
-| `body`      | string | 内容（追記を含む最終版）                                    |
-| `author`    | object | `{ userId, name }`。SWA の `x-ms-client-principal` から設定 |
-| `createdAt` | string | 登録日時。バックログの期間判定に使う                        |
-| `updatedAt` | string | 更新日時                                                    |
+| フィールド  | 型     | 説明                                                                                                                                   |
+| ----------- | ------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `id`        | string | 提案 ID                                                                                                                                |
+| `productId` | string | プロダクト ID                                                                                                                          |
+| `title`     | string | タイトル                                                                                                                               |
+| `body`      | string | 内容（追記を含む最終版）                                                                                                               |
+| `author`    | object | `{ userId, name }`。SWA の `x-ms-client-principal` から設定。`name` は表示名で、メールアドレスは保存しない（[API の共通仕様](api.md)） |
+| `createdAt` | string | 登録日時。バックログの期間判定に使う                                                                                                   |
+| `updatedAt` | string | 更新日時                                                                                                                               |
 
 コンテナーは TTL を有効（既定 -1 で無期限）にしています。[ADR 0005](../plan/decisions/0005-ai-review-streaming.md) の代替案を採用した場合は、判定途中のテキストを一時ドキュメント（`type: 'review'`、`ttl: 3600`）として同じコンテナーに保存します。
 
@@ -65,15 +65,15 @@ Cosmos DB for NoSQL のデータベース `flyingfish`（共有スループッ�
 
 作成した時点の上位 10 件のスナップショットです。
 
-| フィールド  | 型     | 説明                                                                         |
-| ----------- | ------ | ---------------------------------------------------------------------------- |
-| `id`        | string | バックログ ID                                                                |
-| `productId` | string | プロダクト ID                                                                |
-| `from`      | string | 期間の開始日（`YYYY-MM-DD`、その日を含む）                                   |
-| `to`        | string | 期間の終了日（`YYYY-MM-DD`、その日を含む）                                   |
-| `items`     | array  | `[{ scoredItemId, rank, title, riceScore, strategyFitScore }]`（最大 10 件） |
-| `createdAt` | string | 作成日時                                                                     |
-| `createdBy` | object | `{ userId, name }`                                                           |
+| フィールド  | 型     | 説明                                                                                |
+| ----------- | ------ | ----------------------------------------------------------------------------------- |
+| `id`        | string | バックログ ID                                                                       |
+| `productId` | string | プロダクト ID                                                                       |
+| `from`      | string | 期間の開始日（`YYYY-MM-DD`、その日を含む）                                          |
+| `to`        | string | 期間の終了日（`YYYY-MM-DD`、その日を含む）                                          |
+| `items`     | array  | `[{ scoredItemId, rank, title, riceScore, strategyFitScore }]`（最大 10 件）        |
+| `createdAt` | string | 作成日時                                                                            |
+| `createdBy` | object | `{ userId, name }`。`author` と同じく `name` は表示名で、メールアドレスは保存しない |
 
 詳細画面では、`items` の各要素に `scoredItems` の最新の `status`・`issue`・根拠を結合して返します。元の提案が削除された項目は、削除済みと表示します。
 

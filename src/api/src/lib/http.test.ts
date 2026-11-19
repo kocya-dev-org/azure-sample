@@ -1,6 +1,7 @@
 import type { HttpRequest, InvocationContext } from '@azure/functions';
 import { describe, expect, it, vi } from 'vitest';
 import { getPrincipal, logError, readString } from './http';
+import { generatedName } from './person';
 
 function requestWithHeader(value?: string): HttpRequest {
   return {
@@ -9,14 +10,23 @@ function requestWithHeader(value?: string): HttpRequest {
 }
 
 describe('getPrincipal', () => {
-  it('x-ms-client-principal からユーザーを取得する', () => {
-    const header = Buffer.from(
-      JSON.stringify({ userId: 'u1', userDetails: 'user@example.com' }),
-    ).toString('base64');
+  const encode = (value: object) => Buffer.from(JSON.stringify(value)).toString('base64');
+
+  it('name クレームがなければ、メールアドレスではなく userId から生成した名前を使う', () => {
+    const header = encode({ userId: 'u1', userDetails: 'user@example.com' });
     expect(getPrincipal(requestWithHeader(header))).toEqual({
       userId: 'u1',
-      name: 'user@example.com',
+      name: generatedName('u1'),
     });
+  });
+
+  it('name クレームがあればそれを表示名にする', () => {
+    const header = encode({
+      userId: 'u1',
+      userDetails: 'user@example.com',
+      claims: [{ typ: 'name', val: '山田 太郎' }],
+    });
+    expect(getPrincipal(requestWithHeader(header))).toEqual({ userId: 'u1', name: '山田 太郎' });
   });
 
   it('ヘッダーがない・不正な場合は匿名にする', () => {

@@ -15,7 +15,7 @@ const proposal = (id: string, title: string) => ({
   productId: 'p1',
   title,
   body: `${title} の内容`,
-  author: { userId: 'u1', name: 'user@example.com' },
+  author: { userId: 'u1', name: 'ユーザー-1a2b3c4d' },
   createdAt: '2026-11-10T00:00:00.000Z',
   updatedAt: '2026-11-10T00:00:00.000Z',
   rice: { reach: 100, impact: 1, confidence: 0.8, effort: 2, score: 40, rationale: 'r' },
@@ -54,7 +54,7 @@ describe('提案一覧', () => {
     const first = within(cards[0]);
     expect(first.getByText('提案A')).toBeInTheDocument();
     expect(first.getByText('提案A の内容')).toBeInTheDocument();
-    expect(first.getByText('user@example.com')).toBeInTheDocument();
+    expect(first.getByText('ユーザー-1a2b3c4d')).toBeInTheDocument();
     expect(first.getByText('40')).toBeInTheDocument();
     expect(first.getByText('75')).toBeInTheDocument();
 

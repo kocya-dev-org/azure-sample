@@ -14,6 +14,7 @@ vi.mock('../lib/store', () => ({
 }));
 vi.mock('../lib/scoring', () => ({ scoreProposal: vi.fn<() => Promise<unknown>>() }));
 
+import { generatedName } from '../lib/person';
 import { scoreProposal } from '../lib/scoring';
 import * as store from '../lib/store';
 import type { Proposal, ScoredItem } from '../lib/types';
@@ -56,8 +57,8 @@ describe('createProposalHandler', () => {
     expect(result.status).toBe(201);
     const proposal = vi.mocked(store.saveProposal).mock.calls[0][0];
     const item = vi.mocked(store.saveScoredItem).mock.calls[0][0];
-    // 投稿者はクライアントの値ではなく x-ms-client-principal から設定する
-    expect(proposal.author).toEqual({ userId: 'user-1', name: 'user@example.com' });
+    // 投稿者はクライアントの値ではなく x-ms-client-principal から設定し、メールアドレスは使わない
+    expect(proposal.author).toEqual({ userId: 'user-1', name: generatedName('user-1') });
     expect(proposal).not.toHaveProperty('rice');
     expect(item).toMatchObject({
       id: proposal.id,
