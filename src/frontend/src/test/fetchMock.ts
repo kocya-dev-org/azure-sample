@@ -14,7 +14,8 @@ export function noContent(): Response {
   return new Response(null, { status: 204 });
 }
 
-export function textStream(chunks: string[]): Response {
+/** 文字列の配列を、そのままのチャンクに分けて返す SSE 応答。境目を指定したいテストで使う。 */
+export function rawStream(chunks: string[]): Response {
   const encoder = new TextEncoder();
   return new Response(
     new ReadableStream<Uint8Array>({
@@ -23,8 +24,23 @@ export function textStream(chunks: string[]): Response {
         controller.close();
       },
     }),
-    { headers: { 'content-type': 'text/plain; charset=utf-8' } },
+    { headers: { 'content-type': 'text/event-stream; charset=utf-8' } },
   );
+}
+
+/** 判定 API と同じ形式の SSE 応答。イベントごとに 1 チャンクで返す。 */
+export function eventStream(events: { event: string; data: unknown }[]): Response {
+  return rawStream(
+    events.map(({ event, data }) => `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+  );
+}
+
+/** delta イベントの列と、最後の done を返す SSE 応答。 */
+export function deltaStream(texts: string[]): Response {
+  return eventStream([
+    ...texts.map((text) => ({ event: 'delta', data: { text } })),
+    { event: 'done', data: {} },
+  ]);
 }
 
 export function mockFetch(routes: Record<string, RouteHandler | unknown>) {

@@ -31,13 +31,15 @@
 | GET      | `/products/{productId}/proposals/{id}`   | 取得（スコアを含む）                                                                     |
 | PUT      | `/products/{productId}/proposals/{id}`   | 更新。本文 `{ title, body }`。スコアリングをやり直す                                     |
 | DELETE   | `/products/{productId}/proposals/{id}`   | 削除（スコア付き項目も削除） → 204                                                       |
-| POST     | `/products/{productId}/proposals/review` | 判定。本文 `{ title, body }`。コメントを `text/plain; charset=utf-8` のチャンクで返す    |
+| POST     | `/products/{productId}/proposals/review` | 判定。本文 `{ title, body }`。コメントを `text/event-stream`（SSE）のイベントで返す      |
 
 - 判定とスコアリングで Foundry の呼び出しに失敗した場合は 502 を返します。判定のコメントが 1 文字も返らなかった場合や、スコアリングの出力が値の範囲外だった場合も 502 です。
-- 判定のストリームが途中で失敗した場合は、状態コードを変えられないため、本文の末尾に固定の文言を付けて終えます。
-- 判定のストリームが SWA で使えない場合は、`review` を次の方式に変えます（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)）。
-  - `POST` で判定を開始し、`reviewId` を受け取る。
-  - `GET /products/{productId}/proposals/review/{reviewId}` で、途中のテキストと完了状態を取得する。
+- 判定のコメントは、Server-Sent Events（`text/event-stream`）で返します。最初の差分が届く前の失敗（400・404・502）は、ほかの API と同じく JSON のエラーで返します。
+  - `event: delta` / `data: {"text": "…"}`: コメントの差分です。届いた順につなげて表示します。
+  - `event: done` / `data: {}`: 正常に終わったことを示します。
+  - `event: error` / `data: {"message": "…"}`: 途中で失敗したことを示します。状態コードは変えられないため、イベントで知らせて終えます。
+  - `data` はいつも 1 行の JSON です。`done` も `error` もないまま本文が終わった場合は、クライアントは途中で切れたものとして扱います。
+  - 応答ヘッダーは `content-type: text/event-stream`（charset などは付けない）、`cache-control: no-cache`、`x-accel-buffering: no` の 3 つだけです。SWA の経路は、Content-Type が `text/event-stream` と完全に一致するときだけイベントを逐次転送します。charset を付けると、応答全体をためてから圧縮して返します（PR プレビュー環境で確認。[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)）。
 
 ## バックログ
 
@@ -66,9 +68,3 @@
   - 実装済みにするのは、Issue の `state_reason` が `completed` または `null` で閉じられた項目だけです。`doneAt` には Issue の `closed_at` を入れます。
   - エラーは `issues` と同じく、トークンが未設定なら 503、プロダクトがなければ 404、リポジトリが未登録なら 400 です。
   - 同じ処理（`src/api/src/lib/issueSync.ts`）を、独立した Function App のタイマー関数が毎日全プロダクトに対して実行します（[ADR 0010](../plan/decisions/0010-issue-status-sync-batch.md)）。
-
-## 一時的なエンドポイント
-
-| メソッド | ルート         | 説明                                                                                                                                                     |
-| -------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| GET      | `/diag/stream` | HTTP ストリーミングの確認用。1 秒ごとに 1 行ずつ返す。PR プレビュー環境での確認後に削除する（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)） |

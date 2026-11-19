@@ -34,11 +34,13 @@
 - [x] HTTP ストリーミングを有効にした検証用エンドポイントを作る
   - 対象ファイル: `src/api/package.json`（`main` を `dist/src/index.js` に変更）, `src/api/src/index.ts`（`app.setup({ enableHttpStream: true })` の後に各 functions を import）, `src/api/src/functions/diag-stream.ts`（`GET /api/diag/stream`）, `scripts/stage-api.mjs`（`main` の変更に対応しているか確認）
   - 完了条件: `@azure/functions`（4.17.1）が `app.setup({ enableHttpStream: true })` と `ReadableStream` の応答本文に対応していることを確認済み。`npm run stage:api` が成功する。
-- [ ] PR プレビュー環境で `GET /api/diag/stream` を開き、固定テキストが 1 秒ごとにブラウザーへ届くか確認する（PR 作成後に実施）
+- [x] PR プレビュー環境で `GET /api/diag/stream` を開き、固定テキストが 1 秒ごとにブラウザーへ届くか確認する（PR 作成後に実施）
   - 完了条件: 少しずつ届くか、まとめて届くかが判明している。
-- [ ] 検証結果を ADR 0005 に記録し、方式を決める
+  - 結果: `text/plain` と `text/event-stream; charset=utf-8` はまとめて届き、`text/event-stream` ちょうどなら約 1 秒ごとに届いた（PR #16）。
+- [x] 検証結果を ADR 0005 に記録し、方式を決める
   - 対象ファイル: `plan/decisions/0005-ai-review-streaming.md`, `docs/api.md`（代替案を採用した場合）
   - 完了条件: HTTP ストリーミングかポーリングかが決まり、ADR 0005 の状態が「承認」になっている。検証用エンドポイントは削除されている。
+  - 結果: SSE（`text/event-stream`）を採用した。検証用エンドポイントは PR #16 で削除した。
 
 ## Phase 1-2: API の基盤整理
 

@@ -39,7 +39,7 @@ Cosmos DB for NoSQL のデータベース `flyingfish`（共有スループッ�
 | `createdAt` | string | 登録日時。バックログの期間判定に使う                                                                                                   |
 | `updatedAt` | string | 更新日時                                                                                                                               |
 
-コンテナーは TTL を有効（既定 -1 で無期限）にしています。[ADR 0005](../plan/decisions/0005-ai-review-streaming.md) の代替案を採用した場合は、判定途中のテキストを一時ドキュメント（`type: 'review'`、`ttl: 3600`）として同じコンテナーに保存します。
+コンテナーは TTL を有効（既定 -1 で無期限）にしています。[ADR 0005](../plan/decisions/0005-ai-review-streaming.md) の代替案（判定途中のテキストを一時ドキュメントとして保存するポーリング方式）のために用意した設定です。判定は SSE で返すことにしたため、今は一時ドキュメントを保存していません。
 
 ## scoredItems（パーティションキー `/productId`）
 
