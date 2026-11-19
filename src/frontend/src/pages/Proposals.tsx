@@ -1,5 +1,5 @@
-import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { LayoutGridIcon, ListIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,14 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { cn } from '@/lib/utils';
 import { api, errorMessage, type Proposal } from '../api/client';
 import {
@@ -24,6 +32,74 @@ import { useRouter } from '../router';
 /** カードの幅は固定し、画面が広いほど横に並ぶ枚数を増やす。狭い画面では 1 列で縮む。 */
 const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(0,20rem))] gap-4';
 
+// --- 表示レイアウト（カード / リスト） ---
+
+export type ProposalLayout = 'cards' | 'list';
+
+export const LAYOUT_STORAGE_KEY = 'flyingfish.proposalsLayout';
+
+function readStoredLayout(): ProposalLayout {
+  try {
+    const value = window.localStorage.getItem(LAYOUT_STORAGE_KEY);
+    if (value === 'cards' || value === 'list') return value;
+  } catch {
+    // プライベートウィンドウなどで localStorage を使えない場合は既定値にする
+  }
+  return 'cards';
+}
+
+/** 表示レイアウトを、ブラウザーごとに覚えておく。既定はカード。 */
+function useProposalLayout(): [ProposalLayout, (layout: ProposalLayout) => void] {
+  const [layout, setLayoutState] = useState<ProposalLayout>(readStoredLayout);
+  const setLayout = useCallback((next: ProposalLayout) => {
+    setLayoutState(next);
+    try {
+      window.localStorage.setItem(LAYOUT_STORAGE_KEY, next);
+    } catch {
+      // 保存できなくても、表示中のレイアウトは切り替える
+    }
+  }, []);
+  return [layout, setLayout];
+}
+
+const LAYOUT_OPTIONS: { value: ProposalLayout; label: string; icon: typeof ListIcon }[] = [
+  { value: 'cards', label: 'カード表示', icon: LayoutGridIcon },
+  { value: 'list', label: 'リスト表示', icon: ListIcon },
+];
+
+function LayoutToggle({
+  value,
+  onChange,
+}: {
+  value: ProposalLayout;
+  onChange: (layout: ProposalLayout) => void;
+}) {
+  return (
+    <div
+      role="group"
+      aria-label="表示の切り替え"
+      className="flex rounded-md border p-0.5 shadow-xs"
+    >
+      {LAYOUT_OPTIONS.map(({ value: option, label, icon: Icon }) => (
+        <Button
+          key={option}
+          variant={value === option ? 'secondary' : 'ghost'}
+          size="icon"
+          className="size-8"
+          aria-label={label}
+          aria-pressed={value === option}
+          title={label}
+          onClick={() => onChange(option)}
+        >
+          <Icon />
+        </Button>
+      ))}
+    </div>
+  );
+}
+
+// --- 共通の部品 ---
+
 /** 本文の冒頭を、改行と連続する空白をまとめたうえで最大 length 文字（コードポイント単位）で返す。 */
 function excerpt(body: string, length = 50): string {
   const chars = Array.from(body.replace(/\s+/g, ' ').trim());
@@ -35,28 +111,176 @@ function ScoreBadge({
   value,
   variant,
 }: {
-  label: string;
+  label?: string;
   value: number | null | undefined;
   variant: 'secondary' | 'outline';
 }) {
   return (
     <Badge variant={variant} className="gap-1.5">
-      <span className="text-muted-foreground">{label}</span>
+      {label && <span className="text-muted-foreground">{label}</span>}
       <span className="tabular-nums">{formatScore(value)}</span>
     </Badge>
   );
 }
 
-function CardsLoading() {
+/** カードとリストで共有する、1 件分の表示と操作。 */
+interface ItemProps {
+  proposal: Proposal;
+  selected: boolean;
+  busy: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onRemove: () => void;
+}
+
+function SelectCheckbox({ proposal, selected, onToggle }: ItemProps) {
   return (
-    <div className={GRID} aria-busy="true">
+    <Checkbox
+      aria-label={`${proposal.title} を選択`}
+      checked={selected}
+      onCheckedChange={onToggle}
+    />
+  );
+}
+
+function ItemActions({ proposal, busy, onEdit, onRemove }: ItemProps) {
+  return (
+    <div className="flex items-center">
+      <Button
+        variant="ghost"
+        size="icon"
+        aria-label={`${proposal.title} を編集`}
+        disabled={busy}
+        onClick={onEdit}
+      >
+        <PencilIcon />
+      </Button>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="text-destructive hover:text-destructive"
+        aria-label={`${proposal.title} を削除`}
+        disabled={busy}
+        onClick={onRemove}
+      >
+        <Trash2Icon />
+      </Button>
+    </div>
+  );
+}
+
+// --- カード表示 ---
+
+function ProposalCard(props: ItemProps) {
+  const { proposal, selected } = props;
+  return (
+    <li className="min-w-0">
+      <Card
+        data-state={selected ? 'selected' : undefined}
+        className={cn('h-full gap-3 py-4 transition-shadow', selected && 'ring-2 ring-primary')}
+      >
+        <CardHeader className="gap-1 px-4">
+          <div className="flex min-w-0 items-center gap-2">
+            <SelectCheckbox {...props} />
+            <CardTitle className="line-clamp-1 leading-normal" title={proposal.title}>
+              {proposal.title}
+            </CardTitle>
+          </div>
+          <p className="truncate text-xs text-muted-foreground">
+            {proposal.author.name}
+            <span aria-hidden="true"> · </span>
+            <span className="tabular-nums">{formatDate(proposal.createdAt)}</span>
+          </p>
+        </CardHeader>
+        <CardContent className="px-4">
+          <p className="line-clamp-2 text-sm break-words text-muted-foreground">
+            {excerpt(proposal.body)}
+          </p>
+        </CardContent>
+        <CardFooter className="mt-auto flex-wrap gap-2 px-4">
+          <ScoreBadge label="RICE" value={proposal.rice?.score} variant="secondary" />
+          <ScoreBadge label="合致度" value={proposal.strategyFit?.score} variant="outline" />
+          <div className="ml-auto">
+            <ItemActions {...props} />
+          </div>
+        </CardFooter>
+      </Card>
+    </li>
+  );
+}
+
+// --- リスト表示 ---
+
+function ProposalRow(props: ItemProps) {
+  const { proposal, selected } = props;
+  return (
+    <TableRow data-state={selected ? 'selected' : undefined}>
+      <TableCell className="pl-4">
+        <SelectCheckbox {...props} />
+      </TableCell>
+      <TableCell className="max-w-80">
+        <p className="truncate font-medium" title={proposal.title}>
+          {proposal.title}
+        </p>
+        <p className="truncate text-xs text-muted-foreground">{excerpt(proposal.body)}</p>
+      </TableCell>
+      <TableCell className="text-muted-foreground">{proposal.author.name}</TableCell>
+      <TableCell className="text-muted-foreground tabular-nums">
+        {formatDate(proposal.createdAt)}
+      </TableCell>
+      <TableCell className="text-right">
+        <ScoreBadge value={proposal.rice?.score} variant="secondary" />
+      </TableCell>
+      <TableCell className="text-right">
+        <ScoreBadge value={proposal.strategyFit?.score} variant="outline" />
+      </TableCell>
+      <TableCell className="w-24 pr-2">
+        <ItemActions {...props} />
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function ProposalTable({ children }: { children: ReactNode }) {
+  return (
+    <Card className="gap-0 overflow-hidden py-0">
+      <Table aria-label="提案の一覧">
+        <TableHeader className="bg-muted/50">
+          <TableRow>
+            <TableHead className="w-10 pl-4">
+              <span className="sr-only">選択</span>
+            </TableHead>
+            <TableHead>タイトル</TableHead>
+            <TableHead>投稿者</TableHead>
+            <TableHead>登録日</TableHead>
+            <TableHead className="text-right">RICE</TableHead>
+            <TableHead className="text-right">合致度</TableHead>
+            <TableHead className="pr-4">
+              <span className="sr-only">操作</span>
+            </TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>{children}</TableBody>
+      </Table>
+    </Card>
+  );
+}
+
+function ProposalsLoading({ layout }: { layout: ProposalLayout }) {
+  return (
+    <div className={layout === 'cards' ? GRID : 'space-y-2'} aria-busy="true">
       <span className="sr-only">読み込み中…</span>
       {Array.from({ length: 3 }, (_, index) => (
-        <Skeleton key={index} className="h-44 rounded-xl" />
+        <Skeleton
+          key={index}
+          className={layout === 'cards' ? 'h-44 rounded-xl' : 'h-12 rounded-md'}
+        />
       ))}
     </div>
   );
 }
+
+// --- ページ ---
 
 export function ProposalsPage() {
   const { selectedProduct } = useProducts();
@@ -66,6 +290,7 @@ export function ProposalsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [layout, setLayout] = useProposalLayout();
   const [confirm, confirmDialog] = useConfirm();
 
   const load = useCallback(
@@ -142,8 +367,15 @@ export function ProposalsPage() {
       `選択した ${selected.size} 件の提案を削除します。よろしいですか？`,
     );
 
-  const removeOne = (proposal: Proposal) =>
-    deleteProposals([proposal.id], `「${proposal.title}」を削除します。よろしいですか？`);
+  const itemProps = (proposal: Proposal): ItemProps => ({
+    proposal,
+    selected: selected.has(proposal.id),
+    busy,
+    onToggle: () => toggle(proposal.id),
+    onEdit: () => navigate(`/proposals/${encodeURIComponent(proposal.id)}/edit`),
+    onRemove: () =>
+      deleteProposals([proposal.id], `「${proposal.title}」を削除します。よろしいですか？`),
+  });
 
   return (
     <section>
@@ -171,85 +403,27 @@ export function ProposalsPage() {
               <PlusIcon />
               新規登録
             </Button>
+            <LayoutToggle value={layout} onChange={setLayout} />
           </>
         }
       />
       <ErrorMessage>{error}</ErrorMessage>
       {proposals === null ? (
-        !error && <CardsLoading />
+        !error && <ProposalsLoading layout={layout} />
       ) : proposals.length === 0 ? (
         <EmptyState>提案がまだありません。「新規登録」から入力してください。</EmptyState>
-      ) : (
+      ) : layout === 'cards' ? (
         <ul className={GRID} aria-label="提案の一覧">
-          {proposals.map((proposal) => {
-            const isSelected = selected.has(proposal.id);
-            return (
-              <li key={proposal.id} className="min-w-0">
-                <Card
-                  data-state={isSelected ? 'selected' : undefined}
-                  className={cn(
-                    'h-full gap-3 py-4 transition-shadow',
-                    isSelected && 'ring-2 ring-primary',
-                  )}
-                >
-                  <CardHeader className="gap-1 px-4">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Checkbox
-                        aria-label={`${proposal.title} を選択`}
-                        checked={isSelected}
-                        onCheckedChange={() => toggle(proposal.id)}
-                      />
-                      <CardTitle className="line-clamp-1 leading-normal" title={proposal.title}>
-                        {proposal.title}
-                      </CardTitle>
-                    </div>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {proposal.author.name}
-                      <span aria-hidden="true"> · </span>
-                      <span className="tabular-nums">{formatDate(proposal.createdAt)}</span>
-                    </p>
-                  </CardHeader>
-                  <CardContent className="px-4">
-                    <p className="line-clamp-2 text-sm break-words text-muted-foreground">
-                      {excerpt(proposal.body)}
-                    </p>
-                  </CardContent>
-                  <CardFooter className="mt-auto flex-wrap gap-2 px-4">
-                    <ScoreBadge label="RICE" value={proposal.rice?.score} variant="secondary" />
-                    <ScoreBadge
-                      label="合致度"
-                      value={proposal.strategyFit?.score}
-                      variant="outline"
-                    />
-                    <div className="ml-auto flex items-center">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        aria-label={`${proposal.title} を編集`}
-                        disabled={busy}
-                        onClick={() =>
-                          navigate(`/proposals/${encodeURIComponent(proposal.id)}/edit`)
-                        }
-                      >
-                        <PencilIcon />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive hover:text-destructive"
-                        aria-label={`${proposal.title} を削除`}
-                        disabled={busy}
-                        onClick={() => removeOne(proposal)}
-                      >
-                        <Trash2Icon />
-                      </Button>
-                    </div>
-                  </CardFooter>
-                </Card>
-              </li>
-            );
-          })}
+          {proposals.map((proposal) => (
+            <ProposalCard key={proposal.id} {...itemProps(proposal)} />
+          ))}
         </ul>
+      ) : (
+        <ProposalTable>
+          {proposals.map((proposal) => (
+            <ProposalRow key={proposal.id} {...itemProps(proposal)} />
+          ))}
+        </ProposalTable>
       )}
       {confirmDialog}
     </section>
