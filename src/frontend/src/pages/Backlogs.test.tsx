@@ -10,7 +10,7 @@ const backlog = {
   from: '2026-11-01',
   to: '2026-11-15',
   createdAt: '2026-11-16T00:00:00.000Z',
-  createdBy: { userId: 'u1', name: 'user@example.com' },
+  createdBy: { userId: 'u1', name: 'ユーザー-1a2b3c4d' },
   items: [{ scoredItemId: 'a1', rank: 1, title: '提案A', riceScore: 40, strategyFitScore: 75 }],
 };
 

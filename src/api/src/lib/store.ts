@@ -1,6 +1,7 @@
 // データアクセス関数。ハンドラーはこのモジュールを通して Cosmos DB を使う。
 import type { ItemDefinition } from '@azure/cosmos';
 import { getContainer, isCosmosStatus, type ContainerName } from './cosmos';
+import { publicPerson } from './person';
 import type { Backlog, Product, Proposal, ScoredItem } from './types';
 
 async function readItem<T extends ItemDefinition>(
@@ -45,6 +46,15 @@ function stripSystem<T extends object>(doc: T): T {
   return Object.fromEntries(Object.entries(doc).filter(([key]) => !key.startsWith('_'))) as T;
 }
 
+// 以前のデータに残るメールアドレスを表示名に置き換えて返す
+function withPublicAuthor(proposal: Proposal): Proposal {
+  return { ...stripSystem(proposal), author: publicPerson(proposal.author) };
+}
+
+function withPublicCreator(backlog: Backlog): Backlog {
+  return { ...stripSystem(backlog), createdBy: publicPerson(backlog.createdBy) };
+}
+
 // --- プロダクト ---
 
 export async function listProducts(): Promise<Product[]> {
@@ -79,12 +89,12 @@ export async function listProposals(productId: string): Promise<Proposal[]> {
     [],
     productId,
   );
-  return proposals.map(stripSystem);
+  return proposals.map(withPublicAuthor);
 }
 
 export async function getProposal(productId: string, id: string): Promise<Proposal | undefined> {
   const proposal = await readItem<Proposal>('proposals', id, productId);
-  return proposal && stripSystem(proposal);
+  return proposal && withPublicAuthor(proposal);
 }
 
 export async function saveProposal(proposal: Proposal): Promise<void> {
@@ -141,12 +151,12 @@ export async function listBacklogs(productId: string): Promise<Backlog[]> {
     [],
     productId,
   );
-  return backlogs.map(stripSystem);
+  return backlogs.map(withPublicCreator);
 }
 
 export async function getBacklog(productId: string, id: string): Promise<Backlog | undefined> {
   const backlog = await readItem<Backlog>('backlogs', id, productId);
-  return backlog && stripSystem(backlog);
+  return backlog && withPublicCreator(backlog);
 }
 
 export async function saveBacklog(backlog: Backlog): Promise<void> {

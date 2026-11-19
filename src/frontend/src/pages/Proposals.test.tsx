@@ -15,7 +15,7 @@ const proposal = (id: string, title: string) => ({
   productId: 'p1',
   title,
   body: `${title} の内容`,
-  author: { userId: 'u1', name: 'user@example.com' },
+  author: { userId: 'u1', name: 'ユーザー-1a2b3c4d' },
   createdAt: '2026-11-10T00:00:00.000Z',
   updatedAt: '2026-11-10T00:00:00.000Z',
   rice: { reach: 100, impact: 1, confidence: 0.8, effort: 2, score: 40, rationale: 'r' },
@@ -41,29 +41,74 @@ describe('提案一覧', () => {
     expect(await screen.findByText(/操作するプロダクトを選んでください/)).toBeInTheDocument();
   });
 
-  it('スコア付きで一覧を表示し、編集は 1 件選択のときだけ有効にする', async () => {
+  it('提案をカードで表示し、一括削除は選択があるときだけ有効にする', async () => {
     mockFetch({
       'GET /api/products': [PRODUCT],
       'GET /api/products/p1/proposals': [proposal('a1', '提案A'), proposal('a2', '提案B')],
     });
     openAt('/proposals');
 
-    expect(await screen.findByText('提案A')).toBeInTheDocument();
-    expect(screen.getAllByText('40')).toHaveLength(2);
-    const edit = screen.getByRole('button', { name: '編集' });
+    const list = await screen.findByRole('list', { name: '提案の一覧' });
+    const cards = within(list).getAllByRole('listitem');
+    expect(cards).toHaveLength(2);
+    const first = within(cards[0]);
+    expect(first.getByText('提案A')).toBeInTheDocument();
+    expect(first.getByText('提案A の内容')).toBeInTheDocument();
+    expect(first.getByText('ユーザー-1a2b3c4d')).toBeInTheDocument();
+    expect(first.getByText('40')).toBeInTheDocument();
+    expect(first.getByText('75')).toBeInTheDocument();
+
     const remove = screen.getByRole('button', { name: '削除' });
-    expect(edit).toBeDisabled();
     expect(remove).toBeDisabled();
-
     fireEvent.click(screen.getByRole('checkbox', { name: '提案A を選択' }));
-    expect(edit).toBeEnabled();
-    fireEvent.click(screen.getByRole('checkbox', { name: '提案B を選択' }));
-    expect(edit).toBeDisabled();
     expect(remove).toBeEnabled();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'すべて選択' }));
+    expect(screen.getByRole('checkbox', { name: '提案B を選択' })).toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'すべて選択' }));
+    expect(remove).toBeDisabled();
+  });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: '提案B を選択' }));
-    fireEvent.click(edit);
-    expect(window.location.pathname).toBe('/proposals/a1/edit');
+  it('カードの鉛筆アイコンでその提案の編集フォームに移る', async () => {
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/proposals': [proposal('a1', '提案A'), proposal('a2', '提案B')],
+      'GET /api/products/p1/proposals/a2': proposal('a2', '提案B'),
+    });
+    openAt('/proposals');
+
+    fireEvent.click(await screen.findByRole('button', { name: '提案B を編集' }));
+    expect(window.location.pathname).toBe('/proposals/a2/edit');
+  });
+
+  it('カードのゴミ箱アイコンで、確認後にその提案だけを削除する', async () => {
+    const deletedA = vi.fn<() => Response>(() => noContent());
+    const deletedB = vi.fn<() => Response>(() => noContent());
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/proposals': [proposal('a1', '提案A'), proposal('a2', '提案B')],
+      'DELETE /api/products/p1/proposals/a1': deletedA,
+      'DELETE /api/products/p1/proposals/a2': deletedB,
+    });
+    openAt('/proposals');
+
+    fireEvent.click(await screen.findByRole('button', { name: '提案B を削除' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '提案の削除' });
+    expect(dialog).toHaveTextContent('「提案B」を削除します');
+    fireEvent.click(within(dialog).getByRole('button', { name: '削除' }));
+
+    await waitFor(() => expect(deletedB).toHaveBeenCalledOnce());
+    expect(deletedA).not.toHaveBeenCalled();
+  });
+
+  it('本文は冒頭 50 文字だけを表示する', async () => {
+    const long = { ...proposal('a1', '提案A'), body: `${'あ'.repeat(30)}\n${'い'.repeat(30)}` };
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/proposals': [long],
+    });
+    openAt('/proposals');
+
+    expect(await screen.findByText(`${'あ'.repeat(30)} ${'い'.repeat(19)}…`)).toBeInTheDocument();
   });
 
   it('選択した提案を確認後に削除する', async () => {

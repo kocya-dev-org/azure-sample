@@ -1,6 +1,7 @@
 // HTTP ハンドラー共通の処理。
 // エラーレスポンスには固定メッセージだけを返し、外部サービスのエラー内容は含めない。
 import type { HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
+import { displayName } from './person';
 import type { Person } from './types';
 
 export function jsonError(status: number, message: string): HttpResponseInit {
@@ -26,7 +27,10 @@ export function logError(context: InvocationContext, message: string, error: unk
   context.error(message, detail);
 }
 
-/** SWA が付与する x-ms-client-principal からユーザーを取得する。 */
+/**
+ * SWA が付与する x-ms-client-principal からユーザーを取得する。
+ * 表示名は name クレームがあればそれを使い、なければ userId から生成する（userDetails のメールアドレスは使わない）。
+ */
 export function getPrincipal(request: HttpRequest): Person {
   const header = request.headers.get('x-ms-client-principal');
   if (header) {
@@ -35,10 +39,10 @@ export function getPrincipal(request: HttpRequest): Person {
         string,
         unknown
       >;
-      if (typeof principal.userId === 'string') {
+      if (typeof principal.userId === 'string' && principal.userId !== '') {
         return {
           userId: principal.userId,
-          name: typeof principal.userDetails === 'string' ? principal.userDetails : '不明',
+          name: displayName(principal.userId, principal.claims),
         };
       }
     } catch {
