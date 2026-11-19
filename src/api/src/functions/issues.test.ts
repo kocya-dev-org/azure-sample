@@ -8,15 +8,19 @@ vi.mock('../lib/store', () => ({
   getScoredItem: vi.fn<() => Promise<unknown>>(),
   saveScoredItem: vi.fn<() => Promise<void>>(),
 }));
+vi.mock('../lib/issueSync', () => ({
+  syncProductIssueStatus: vi.fn<() => Promise<unknown>>(),
+}));
 vi.mock('../lib/github', () => ({
   isGithubEnabled: vi.fn<() => boolean>(),
   createIssue: vi.fn<() => Promise<unknown>>(),
 }));
 
 import { createIssue, isGithubEnabled } from '../lib/github';
+import { syncProductIssueStatus } from '../lib/issueSync';
 import * as store from '../lib/store';
 import type { ScoredItem } from '../lib/types';
-import { createIssuesHandler } from './issues';
+import { createIssuesHandler, syncIssueStatusHandler } from './issues';
 
 const product = {
   id: 'p1',
@@ -93,5 +97,37 @@ describe('createIssuesHandler', () => {
       'org/repo',
       expect.objectContaining({ title: '項目 new' }),
     );
+  });
+});
+
+describe('syncIssueStatusHandler', () => {
+  const syncRequest = () => makeRequest({ params: { productId: 'p1' } });
+
+  it('トークンが未設定なら 503、プロダクトがなければ 404、リポジトリがなければ 400', async () => {
+    vi.mocked(isGithubEnabled).mockReturnValue(false);
+    expect((await syncIssueStatusHandler(syncRequest(), makeContext())).status).toBe(503);
+    vi.mocked(isGithubEnabled).mockReturnValue(true);
+    vi.mocked(store.getProduct).mockResolvedValue(undefined);
+    expect((await syncIssueStatusHandler(syncRequest(), makeContext())).status).toBe(404);
+    vi.mocked(store.getProduct).mockResolvedValue({ ...product, repository: undefined });
+    expect((await syncIssueStatusHandler(syncRequest(), makeContext())).status).toBe(400);
+    expect(syncProductIssueStatus).not.toHaveBeenCalled();
+  });
+
+  it('共通処理の結果を返す', async () => {
+    const summary = { checked: 2, updated: [{ id: 'a', doneAt: 'x' }], failed: 0 };
+    vi.mocked(syncProductIssueStatus).mockResolvedValue(summary);
+    const result = await syncIssueStatusHandler(syncRequest(), makeContext());
+    expect(result).toEqual({ jsonBody: summary });
+    expect(syncProductIssueStatus).toHaveBeenCalledWith(product, expect.anything());
+  });
+
+  it('同期に失敗したら固定メッセージの 500 を返す', async () => {
+    vi.mocked(syncProductIssueStatus).mockRejectedValue(new Error('cosmos down'));
+    const result = await syncIssueStatusHandler(syncRequest(), makeContext());
+    expect(result).toEqual({
+      status: 500,
+      jsonBody: { error: 'Issue の状態の確認に失敗しました。' },
+    });
   });
 });

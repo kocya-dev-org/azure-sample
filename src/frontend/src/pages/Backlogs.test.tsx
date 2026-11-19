@@ -122,7 +122,33 @@ describe('バックログ', () => {
 
     expect(await screen.findByText(/GitHub 連携が未設定/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Issue 起票' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Issue 状態を更新' })).toBeDisabled();
     expect(screen.getByRole('checkbox', { name: '提案A を選択' })).toBeDisabled();
+  });
+
+  it('Issue 状態を更新すると、完了で閉じられた項目を実装済みにする', async () => {
+    const synced = vi.fn<(body: unknown) => Response>(() =>
+      json({ checked: 1, updated: [{ id: 'a1', doneAt: '2026-11-18T00:00:00Z' }], failed: 0 }),
+    );
+    const issue = { number: 12, url: 'https://github.com/org/repo/issues/12', createdAt: 'x' };
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/backlogs/b1': {
+        ...detail,
+        githubEnabled: true,
+        items: [{ ...detail.items[0], issue }],
+      },
+      'POST /api/products/p1/issues/sync': synced,
+    });
+    openAt('/backlogs/b1');
+
+    const select = await screen.findByRole('combobox', { name: '提案A の実装状況' });
+    expect(select).toHaveValue('open');
+    fireEvent.click(screen.getByRole('button', { name: 'Issue 状態を更新' }));
+
+    await waitFor(() => expect(select).toHaveValue('done'));
+    expect(synced).toHaveBeenCalledOnce();
+    expect(screen.getByRole('status')).toHaveTextContent('1 件を実装済みにしました');
   });
 
   it('選択した項目を Issue として起票し、リンクを表示する', async () => {

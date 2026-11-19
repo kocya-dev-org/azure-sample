@@ -112,6 +112,17 @@ export async function listScoredItems(productId: string): Promise<ScoredItem[]> 
   return items.map(stripSystem);
 }
 
+/** 未対応で、Issue を起票済みのスコア付き項目を返す（Issue 状態の同期用）。 */
+export async function listOpenItemsWithIssue(productId: string): Promise<ScoredItem[]> {
+  const items = await queryAll<ScoredItem>(
+    'scoredItems',
+    "SELECT * FROM c WHERE c.status = 'open' AND IS_OBJECT(c.issue)",
+    [],
+    productId,
+  );
+  return items.map(stripSystem);
+}
+
 export async function getScoredItem(
   productId: string,
   id: string,

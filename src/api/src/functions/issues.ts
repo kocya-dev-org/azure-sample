@@ -1,4 +1,4 @@
-// バックログ項目の GitHub Issue 起票（Phase 2、ADR 0007）。
+// バックログ項目の GitHub Issue 起票（Phase 2、ADR 0007）と、Issue 状態の手動同期（ADR 0010）。
 import {
   app,
   type HttpRequest,
@@ -7,6 +7,7 @@ import {
 } from '@azure/functions';
 import { createIssue, isGithubEnabled } from '../lib/github';
 import { jsonError, logError, readJsonObject } from '../lib/http';
+import { syncProductIssueStatus } from '../lib/issueSync';
 import { getProduct, getProposal, getScoredItem, saveScoredItem } from '../lib/store';
 import type { IssueRef, Proposal, ScoredItem } from '../lib/types';
 
@@ -107,4 +108,37 @@ app.http('createIssues', {
   authLevel: 'anonymous',
   route: 'products/{productId}/issues',
   handler: createIssuesHandler,
+});
+
+/** 起票済みで未対応の項目について Issue の状態を確認し、completed で close されていれば実装済みにする。 */
+export async function syncIssueStatusHandler(
+  request: HttpRequest,
+  context: InvocationContext,
+): Promise<HttpResponseInit> {
+  if (!isGithubEnabled()) return jsonError(503, 'GitHub 連携が未設定です。');
+  const { productId } = request.params;
+
+  let product;
+  try {
+    product = await getProduct(productId);
+  } catch (error) {
+    logError(context, 'Product read failed', error);
+    return jsonError(500, 'プロダクトの読み込みに失敗しました。');
+  }
+  if (!product) return jsonError(404, 'プロダクトが見つかりません。');
+  if (!product.repository) return jsonError(400, 'プロダクトにリポジトリが登録されていません。');
+
+  try {
+    return { jsonBody: await syncProductIssueStatus(product, context) };
+  } catch (error) {
+    logError(context, 'Issue status sync failed', error);
+    return jsonError(500, 'Issue の状態の確認に失敗しました。');
+  }
+}
+
+app.http('syncIssueStatus', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  route: 'products/{productId}/issues/sync',
+  handler: syncIssueStatusHandler,
 });

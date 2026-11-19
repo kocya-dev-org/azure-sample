@@ -78,6 +78,17 @@ func start
 
 設定は、使うときに初めて検査します（`src/api/src/lib/settings.ts`）。たとえば Foundry の設定がなくても、プロダクトの登録や一覧は動きます。
 
+## 日次バッチ（Issue 状態の同期）
+
+日次バッチのタイマー関数（`src/api/src/batch/syncIssueStatusTimer.ts`）は、独立した Function App で動かします（[ADR 0010](../plan/decisions/0010-issue-status-sync-batch.md)）。
+
+- **ローカルでの確認:** 同じ処理を `POST /api/products/{productId}/issues/sync`（バックログ詳細画面の「Issue 状態を更新」）で実行できます。
+- **タイマー関数そのものをローカルで動かす場合:**
+  1. `npm run build` と `npm run stage:batch` を実行する。
+  2. `.deploy/batch` に `local.settings.json` を置く。`AzureWebJobsStorage` に Azurite などのストレージを指定する。
+  3. そのディレクトリで `func start` を実行する。
+- **デプロイ用の成果物:** `npm run stage:batch` で `.deploy/batch` に作成します。`package.json` の `main` は `dist/src/batch.js` に書き換わります。
+
 ## 動作確認用のエンドポイント
 
 `GET /api/diag/stream` は、HTTP ストリーミングがブラウザーまで届くかを確かめる一時的なエンドポイントです。1 秒ごとに 1 行ずつ返します。PR プレビュー環境での確認が済んだら削除します（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)）。
