@@ -1,31 +1,45 @@
+import { CircleCheckIcon, CircleDotIcon, LightbulbIcon, type LucideIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { api, errorMessage, type Dashboard, type MonthlyCount } from '../api/client';
-import { ErrorMessage, NoProductSelected } from '../components/common';
+import { Bar, BarChart, CartesianGrid, LabelList, XAxis, YAxis } from 'recharts';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { api, errorMessage, type Dashboard } from '../api/client';
+import { ErrorMessage, LoadingState, NoProductSelected, PageHeader } from '../components/common';
 import { useProducts } from '../context/ProductContext';
 
-const SERIES = [
-  { key: 'proposals', label: '提案数', color: 'var(--series-1)' },
-  { key: 'issues', label: 'Issue 起票数', color: 'var(--series-2)' },
-  { key: 'done', label: '実装済み数', color: 'var(--series-3)' },
-] as const;
+type SeriesKey = 'proposals' | 'issues' | 'done';
 
-type SeriesKey = (typeof SERIES)[number]['key'];
+// 系列の色は index.css の --chart-1〜3（dataviz の検証済みパレット。ライトとダークで別の段）
+const SERIES: { key: SeriesKey; label: string; icon: LucideIcon }[] = [
+  { key: 'proposals', label: '提案数', icon: LightbulbIcon },
+  { key: 'issues', label: 'Issue 起票数', icon: CircleDotIcon },
+  { key: 'done', label: '実装済み数', icon: CircleCheckIcon },
+];
 
-// SVG の座標系（viewBox）。幅は CSS で親に合わせて伸縮する
-const WIDTH = 640;
-const HEIGHT = 240;
-const MARGIN = { top: 24, right: 8, bottom: 28, left: 36 };
-const BAR_WIDTH = 20;
-const BAR_GAP = 2;
+const chartConfig = {
+  proposals: { label: '提案数', color: 'var(--chart-1)' },
+  issues: { label: 'Issue 起票数', color: 'var(--chart-2)' },
+  done: { label: '実装済み数', color: 'var(--chart-3)' },
+} satisfies ChartConfig;
 
-/** 目盛りの上限を 1・2・5 の倍数に丸める。 */
-export function niceMax(value: number): number {
-  if (value <= 4) return 4;
-  const magnitude = 10 ** Math.floor(Math.log10(value));
-  for (const step of [1, 2, 5, 10]) {
-    if (value <= step * magnitude) return step * magnitude;
-  }
-  return 10 * magnitude;
+/** 凡例とツールチップを、Recharts の既定（名前順）ではなく SERIES の順に並べる。 */
+function seriesOrder(item: { dataKey?: unknown }): number {
+  return SERIES.findIndex((series) => series.key === item.dataKey);
 }
 
 function formatMonth(month: string): string {
@@ -33,146 +47,59 @@ function formatMonth(month: string): string {
   return `${year}年${Number(m)}月`;
 }
 
-/** 上端だけ 4px 角丸の棒（下端は基線に揃えて角を付けない）。 */
-function barPath(x: number, y: number, width: number, height: number): string {
-  if (height <= 0) return '';
-  const r = Math.min(4, height, width / 2);
-  const bottom = y + height;
-  return [
-    `M${x},${bottom}`,
-    `V${y + r}`,
-    `Q${x},${y} ${x + r},${y}`,
-    `H${x + width - r}`,
-    `Q${x + width},${y} ${x + width},${y + r}`,
-    `V${bottom}`,
-    'Z',
-  ].join(' ');
-}
-
-function MonthlyChart({ monthly }: { monthly: MonthlyCount[] }) {
-  const [hovered, setHovered] = useState<number | null>(null);
-  const max = niceMax(Math.max(0, ...monthly.flatMap((row) => SERIES.map((s) => row[s.key]))));
-  const plotWidth = WIDTH - MARGIN.left - MARGIN.right;
-  const plotHeight = HEIGHT - MARGIN.top - MARGIN.bottom;
-  const band = plotWidth / monthly.length;
-  const groupWidth = SERIES.length * BAR_WIDTH + (SERIES.length - 1) * BAR_GAP;
-  const y = (value: number) => MARGIN.top + plotHeight - (value / max) * plotHeight;
-  const ticks = [0, max / 2, max];
-  const active = hovered === null ? null : monthly[hovered];
-
+function MonthlyChart({ monthly }: { monthly: Dashboard['monthly'] }) {
   return (
-    <div className="chart">
-      <ul className="legend" aria-label="凡例">
-        {SERIES.map((series) => (
-          <li key={series.key}>
-            <span className="swatch" style={{ background: series.color }} aria-hidden="true" />
-            {series.label}
-          </li>
-        ))}
-      </ul>
-      <div className="chart-plot" onMouseLeave={() => setHovered(null)}>
-        <svg
-          viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
-          role="img"
-          aria-label="直近 6 か月の提案数・Issue 起票数・実装済み数の推移（数値は下の表を参照）"
-        >
-          {ticks.map((tick) => (
-            <g key={tick}>
-              <line
-                x1={MARGIN.left}
-                x2={WIDTH - MARGIN.right}
-                y1={y(tick)}
-                y2={y(tick)}
-                className={tick === 0 ? 'axis-line' : 'grid-line'}
+    <div
+      role="img"
+      aria-label="直近 6 か月の提案数・Issue 起票数・実装済み数の推移（数値は下の表を参照）"
+    >
+      <ChartContainer config={chartConfig} className="aspect-auto h-72 w-full">
+        <BarChart data={monthly} barGap={2} barCategoryGap="20%" margin={{ top: 20, left: -16 }}>
+          <CartesianGrid vertical={false} />
+          <XAxis
+            dataKey="month"
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            tickFormatter={(month: string) => `${Number(month.slice(5))}月`}
+          />
+          <YAxis tickLine={false} axisLine={false} allowDecimals={false} width={48} />
+          <ChartTooltip
+            cursor={{ fillOpacity: 0.6 }}
+            itemSorter={seriesOrder}
+            content={
+              <ChartTooltipContent
+                indicator="dot"
+                labelFormatter={(_, payload) => {
+                  const month = (payload?.[0]?.payload as { month?: string } | undefined)?.month;
+                  return month ? formatMonth(month) : '';
+                }}
               />
-              <text
-                x={MARGIN.left - 6}
-                y={y(tick)}
-                className="axis-label"
-                textAnchor="end"
-                dy="0.32em"
-              >
-                {tick}
-              </text>
-            </g>
+            }
+          />
+          <ChartLegend content={<ChartLegendContent />} itemSorter={seriesOrder} />
+          {SERIES.map((series) => (
+            <Bar
+              key={series.key}
+              dataKey={series.key}
+              fill={`var(--color-${series.key})`}
+              radius={[4, 4, 0, 0]}
+              maxBarSize={24}
+              isAnimationActive={false}
+            >
+              {/* ライトの面では一部の系列色のコントラストが 3:1 未満のため、値を直接表示する */}
+              <LabelList
+                dataKey={series.key}
+                position="top"
+                offset={6}
+                className="fill-foreground"
+                fontSize={11}
+                formatter={(value: unknown) => (Number(value) > 0 ? String(value) : '')}
+              />
+            </Bar>
           ))}
-          {monthly.map((row, index) => {
-            const bandX = MARGIN.left + index * band;
-            const startX = bandX + (band - groupWidth) / 2;
-            return (
-              <g key={row.month}>
-                {hovered === index && (
-                  <rect
-                    x={bandX}
-                    y={MARGIN.top}
-                    width={band}
-                    height={plotHeight}
-                    className="hover-band"
-                  />
-                )}
-                {SERIES.map((series, i) => {
-                  const value = row[series.key];
-                  const x = startX + i * (BAR_WIDTH + BAR_GAP);
-                  return (
-                    <g key={series.key}>
-                      <path
-                        d={barPath(x, y(value), BAR_WIDTH, y(0) - y(value))}
-                        fill={series.color}
-                      />
-                      {value > 0 && (
-                        <text
-                          x={x + BAR_WIDTH / 2}
-                          y={y(value) - 4}
-                          className="value-label"
-                          textAnchor="middle"
-                        >
-                          {value}
-                        </text>
-                      )}
-                    </g>
-                  );
-                })}
-                <text
-                  x={bandX + band / 2}
-                  y={HEIGHT - MARGIN.bottom + 18}
-                  className="axis-label"
-                  textAnchor="middle"
-                >
-                  {Number(row.month.slice(5))}月
-                </text>
-                {/* ホバーの当たり判定は棒より広い月の帯全体にする */}
-                <rect
-                  x={bandX}
-                  y={MARGIN.top}
-                  width={band}
-                  height={plotHeight + MARGIN.bottom}
-                  fill="transparent"
-                  onMouseEnter={() => setHovered(index)}
-                  data-testid={`month-${row.month}`}
-                />
-              </g>
-            );
-          })}
-        </svg>
-        {active && hovered !== null && (
-          <div
-            className="tooltip"
-            role="tooltip"
-            style={{
-              left: `${((MARGIN.left + (hovered + 0.5) * band) / WIDTH) * 100}%`,
-            }}
-          >
-            <strong>{formatMonth(active.month)}</strong>
-            {SERIES.map((series) => (
-              <div key={series.key} className="tooltip-row">
-                <span className="swatch" style={{ background: series.color }} aria-hidden="true" />
-                <span>{series.label}</span>
-                <span className="tooltip-value">{active[series.key]}</span>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+        </BarChart>
+      </ChartContainer>
     </div>
   );
 }
@@ -202,65 +129,83 @@ export function DashboardPage() {
   if (!productId) {
     return (
       <section>
-        <h1>ダッシュボード</h1>
+        <PageHeader title="ダッシュボード" />
         <NoProductSelected />
       </section>
     );
   }
 
-  const totals: { key: SeriesKey; label: string }[] = [
-    { key: 'proposals', label: '提案数' },
-    { key: 'issues', label: 'Issue 起票数' },
-    { key: 'done', label: '実装済み数' },
-  ];
-
   return (
     <section>
-      <h1>ダッシュボード</h1>
+      <PageHeader
+        title="ダッシュボード"
+        description={`${selectedProduct.name} の提案と開発の状況です。`}
+      />
       <ErrorMessage>{error}</ErrorMessage>
       {!dashboard ? (
-        !error && <p className="muted">読み込み中…</p>
+        !error && <LoadingState rows={4} />
       ) : (
-        <>
-          <div className="stat-tiles">
-            {totals.map((tile) => (
-              <div key={tile.key} className="stat-tile">
-                <span className="stat-label">{tile.label}</span>
-                <span className="stat-value">{dashboard.totals[tile.key]}</span>
-              </div>
-            ))}
+        <div className="grid gap-6">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {SERIES.map((tile) => {
+              const Icon = tile.icon;
+              return (
+                <Card key={tile.key} className="gap-2">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardDescription className="font-medium">{tile.label}</CardDescription>
+                    <Icon className="size-4 text-muted-foreground" aria-hidden="true" />
+                  </CardHeader>
+                  <CardContent>
+                    <span className="text-3xl font-semibold tracking-tight tabular-nums">
+                      {dashboard.totals[tile.key]}
+                    </span>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
           {!dashboard.githubEnabled && (
-            <p className="muted">GitHub 連携が未設定のため、Issue 起票数は増えません。</p>
+            <p className="-mt-2 text-sm text-muted-foreground">
+              GitHub 連携が未設定のため、Issue 起票数は増えません。
+            </p>
           )}
-          <h2>月別の推移（直近 6 か月）</h2>
-          <MonthlyChart monthly={dashboard.monthly} />
-          <table className="table">
-            <caption className="visually-hidden">月別の推移</caption>
-            <thead>
-              <tr>
-                <th>月</th>
-                {SERIES.map((series) => (
-                  <th key={series.key} className="number">
-                    {series.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {dashboard.monthly.map((row) => (
-                <tr key={row.month}>
-                  <td>{formatMonth(row.month)}</td>
+          <Card>
+            <CardHeader>
+              <CardTitle>月別の推移（直近 6 か月）</CardTitle>
+              <CardDescription>月ごとの提案数・Issue 起票数・実装済み数</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <MonthlyChart monthly={dashboard.monthly} />
+            </CardContent>
+          </Card>
+          <Card className="gap-0 overflow-hidden py-0">
+            <Table>
+              <caption className="sr-only">月別の推移</caption>
+              <TableHeader className="bg-muted/50">
+                <TableRow>
+                  <TableHead className="pl-4">月</TableHead>
                   {SERIES.map((series) => (
-                    <td key={series.key} className="number">
-                      {row[series.key]}
-                    </td>
+                    <TableHead key={series.key} className="text-right last:pr-4">
+                      {series.label}
+                    </TableHead>
                   ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {dashboard.monthly.map((row) => (
+                  <TableRow key={row.month}>
+                    <TableCell className="pl-4">{formatMonth(row.month)}</TableCell>
+                    {SERIES.map((series) => (
+                      <TableCell key={series.key} className="text-right tabular-nums last:pr-4">
+                        {row[series.key]}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </div>
       )}
     </section>
   );

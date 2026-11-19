@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from '../App';
 import {
@@ -73,13 +73,35 @@ describe('提案一覧', () => {
       'GET /api/products/p1/proposals': [proposal('a1', '提案A')],
       'DELETE /api/products/p1/proposals/a1': deleted,
     });
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     openAt('/proposals');
 
     fireEvent.click(await screen.findByRole('checkbox', { name: '提案A を選択' }));
     fireEvent.click(screen.getByRole('button', { name: '削除' }));
 
+    const dialog = await screen.findByRole('alertdialog', { name: '提案の削除' });
+    expect(dialog).toHaveTextContent('選択した 1 件の提案を削除します');
+    expect(deleted).not.toHaveBeenCalled();
+    fireEvent.click(within(dialog).getByRole('button', { name: '削除' }));
+
     await waitFor(() => expect(deleted).toHaveBeenCalledOnce());
+  });
+
+  it('確認ダイアログでキャンセルすると削除しない', async () => {
+    const deleted = vi.fn<() => Response>(() => noContent());
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'GET /api/products/p1/proposals': [proposal('a1', '提案A')],
+      'DELETE /api/products/p1/proposals/a1': deleted,
+    });
+    openAt('/proposals');
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: '提案A を選択' }));
+    fireEvent.click(screen.getByRole('button', { name: '削除' }));
+    const dialog = await screen.findByRole('alertdialog', { name: '提案の削除' });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'キャンセル' }));
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument());
+    expect(deleted).not.toHaveBeenCalled();
   });
 });
 

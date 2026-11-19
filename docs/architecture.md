@@ -60,7 +60,7 @@
 
 ## フロントエンド
 
-React + Vite の SPA です。画面の切り替えは History API を使った自前のルーター（`src/frontend/src/router.tsx`、[ADR 0006](../plan/decisions/0006-spa-routing.md)）で行い、SWA の `navigationFallback` で任意のパスに `index.html` を返します。画面の仕様は [機能仕様](./features.md) を参照してください。
+React + Vite の SPA です。UI は shadcn/ui（Tailwind CSS v4 + Radix）の部品で組み立てます（[ADR 0009](../plan/decisions/0009-shadcn-ui.md)）。画面の切り替えは History API を使った自前のルーター（`src/frontend/src/router.tsx`、[ADR 0006](../plan/decisions/0006-spa-routing.md)）で行い、SWA の `navigationFallback` で任意のパスに `index.html` を返します。画面の仕様は [機能仕様](./features.md) を参照してください。
 
 ## ビルドとデプロイ
 

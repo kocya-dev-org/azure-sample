@@ -38,6 +38,21 @@ npm run dev -w src/frontend
 
 Vite の dev server が起動し、`/api` を `http://localhost:7071` にプロキシします。
 
+### UI 部品の追加
+
+UI 部品は shadcn/ui の CLI で `src/frontend/src/components/ui/` に生成します（[ADR 0009](../plan/decisions/0009-shadcn-ui.md)）。
+
+```bash
+cd src/frontend
+npx shadcn@latest add <部品名>
+cd ../..
+npm run format && npm run lint
+```
+
+- 生成コードの `cn` が `@/lib/utils` 以外（npm パッケージの `cn` など）から import されていたら直します。CLI が別の依存を追加した場合は、`package.json` から外します。
+- `next-themes` は使いません。テーマは `src/context/ThemeContext.tsx` の `useTheme` を使います。
+- 選択リストは Radix Select ではなく、`components/ui/native-select.tsx`（native の `select`）を使います。
+
 ## API
 
 ```bash

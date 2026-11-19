@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProductProvider } from '../context/ProductContext';
 import { RouterProvider } from '../router';
@@ -62,7 +62,6 @@ describe('ProductsPage', () => {
   it('一覧の行を選ぶと編集ダイアログが開き、確認後に削除できる', async () => {
     const deleted = vi.fn<() => Response>(() => noContent());
     mockFetch({ 'GET /api/products': [PRODUCT], 'DELETE /api/products/p1': deleted });
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     renderPage();
 
     fireEvent.click(await screen.findByRole('button', { name: '製品A' }));
@@ -70,7 +69,11 @@ describe('ProductsPage', () => {
     expect(screen.getByLabelText('名前')).toHaveValue('製品A');
     fireEvent.click(screen.getByRole('button', { name: '削除' }));
 
+    const confirmDialog = await screen.findByRole('alertdialog', { name: 'プロダクトの削除' });
+    expect(confirmDialog).toHaveTextContent('すべて削除されます');
+    expect(deleted).not.toHaveBeenCalled();
+    fireEvent.click(within(confirmDialog).getByRole('button', { name: '削除' }));
+
     await waitFor(() => expect(deleted).toHaveBeenCalledOnce());
-    expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('すべて削除されます'));
   });
 });
