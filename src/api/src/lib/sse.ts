@@ -1,8 +1,20 @@
 // Server-Sent Events（text/event-stream）の組み立て（ADR 0005）。
 // イベントの形式は docs/api.md と src/frontend/src/api/sse.ts と一致させる。
 
-/** SSE の応答ヘッダー。途中のプロキシに圧縮・変換・バッファリングをさせない。 */
+/**
+ * SSE の応答ヘッダー。
+ * Azure の前段のプロキシは Content-Type が `text/event-stream` と完全に一致するときだけ
+ * 逐次転送するとみられるため、charset などは付けない（SSE は仕様上 UTF-8 固定）。
+ * ほかのヘッダーも、逐次届いた事例（ADR 0005）と同じものだけにする。
+ */
 export const SSE_HEADERS: Record<string, string> = {
+  'content-type': 'text/event-stream',
+  'cache-control': 'no-cache',
+  'x-accel-buffering': 'no',
+};
+
+/** 以前のヘッダー。SWA の経路で 1 チャンクにまとまった形で、検証用エンドポイントの比較に使う。 */
+export const LEGACY_SSE_HEADERS: Record<string, string> = {
   'content-type': 'text/event-stream; charset=utf-8',
   'cache-control': 'no-cache, no-transform',
   'x-accel-buffering': 'no',

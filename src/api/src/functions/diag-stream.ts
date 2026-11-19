@@ -1,9 +1,9 @@
 // ストリーミング検証用の一時エンドポイント（ADR 0005）。検証が終わったら削除する。
 // SWA の経路でチャンクが逐次届かない原因を切り分けるため、形式・パディング・件数・間隔・
-// ストリームの実装・content-encoding をクエリで切り替えられるようにしている。
+// ストリームの実装・content-encoding・SSE のヘッダー（legacy=1 で以前の形）をクエリで切り替えられるようにしている。
 import { Readable } from 'node:stream';
 import { app, type HttpRequest, type HttpResponseInit } from '@azure/functions';
-import { SSE_HEADERS, sseEvent } from '../lib/sse';
+import { LEGACY_SSE_HEADERS, SSE_HEADERS, sseEvent } from '../lib/sse';
 
 export interface DiagOptions {
   format: 'plain' | 'sse';
@@ -12,6 +12,7 @@ export interface DiagOptions {
   interval: number;
   impl: 'web' | 'node';
   identity: boolean;
+  legacy: boolean;
 }
 
 /** 整数として読み、範囲外や不正な値は既定値にする。 */
@@ -31,6 +32,7 @@ export function parseDiagOptions(query: URLSearchParams): DiagOptions {
     interval: readInt(query.get('interval'), 1000, 100, 5000),
     impl: query.get('impl') === 'node' ? 'node' : 'web',
     identity: query.get('identity') === '1',
+    legacy: query.get('legacy') === '1',
   };
 }
 
@@ -92,7 +94,7 @@ function toNodeStream(chunks: AsyncGenerator<string>): Readable {
 export function diagHeaders(options: DiagOptions): Record<string, string> {
   const headers: Record<string, string> =
     options.format === 'sse'
-      ? { ...SSE_HEADERS }
+      ? { ...(options.legacy ? LEGACY_SSE_HEADERS : SSE_HEADERS) }
       : { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' };
   return options.identity ? { ...headers, 'content-encoding': 'identity' } : headers;
 }

@@ -4,7 +4,7 @@ vi.mock('@azure/functions', () => ({ app: { http: vi.fn<(...args: unknown[]) => 
 
 import type { HttpRequest } from '@azure/functions';
 import { Readable } from 'node:stream';
-import { SSE_HEADERS } from '../lib/sse';
+import { LEGACY_SSE_HEADERS, SSE_HEADERS } from '../lib/sse';
 import {
   diagChunks,
   diagHeaders,
@@ -48,6 +48,7 @@ describe('parseDiagOptions', () => {
       interval: 1000,
       impl: 'web',
       identity: false,
+      legacy: false,
     });
     expect(options('format=sse').pad).toBe(2048);
   });
@@ -60,6 +61,7 @@ describe('parseDiagOptions', () => {
       interval: 100,
       impl: 'node',
       identity: true,
+      legacy: false,
     });
     expect(options('pad=99999&count=0&interval=abc')).toMatchObject({
       pad: 0,
@@ -107,6 +109,7 @@ describe('diagStream', () => {
   it('format と identity に応じたヘッダーを返す', () => {
     expect(diagHeaders(options(''))).toMatchObject({ 'content-type': 'text/plain; charset=utf-8' });
     expect(diagHeaders(options('format=sse'))).toEqual(SSE_HEADERS);
+    expect(diagHeaders(options('format=sse&legacy=1'))).toEqual(LEGACY_SSE_HEADERS);
     expect(diagHeaders(options('format=sse&identity=1'))).toEqual({
       ...SSE_HEADERS,
       'content-encoding': 'identity',

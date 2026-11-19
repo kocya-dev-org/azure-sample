@@ -18,8 +18,11 @@ describe('SSE_PADDING', () => {
 });
 
 describe('SSE_HEADERS', () => {
-  it('text/event-stream を返し、変換をさせない', () => {
-    expect(SSE_HEADERS['content-type']).toBe('text/event-stream; charset=utf-8');
-    expect(SSE_HEADERS['cache-control']).toContain('no-transform');
+  it('Content-Type は charset を付けない text/event-stream ちょうどにする', () => {
+    expect(SSE_HEADERS).toEqual({
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache',
+      'x-accel-buffering': 'no',
+    });
   });
 });

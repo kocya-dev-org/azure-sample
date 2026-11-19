@@ -62,9 +62,10 @@ describe('reviewProposalHandler', () => {
 
     const result = await reviewProposalHandler(request(), makeContext());
 
-    expect(result.headers).toMatchObject({
-      'content-type': 'text/event-stream; charset=utf-8',
-      'cache-control': 'no-cache, no-transform',
+    expect(result.headers).toEqual({
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache',
+      'x-accel-buffering': 'no',
     });
     expect(parseEvents(await readAll(result.body as ReadableStream<Uint8Array>))).toEqual([
       { event: 'delta', data: { text: 'Reach: ' } },

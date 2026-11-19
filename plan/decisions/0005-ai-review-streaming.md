@@ -72,4 +72,22 @@ Node.js v4 の HTTP ストリーミングに SSE を載せることはできる�
 | SWA の `/api` の 45 秒の上限                         | 1 秒ごとに 50 件を送る版（`count=50`）で、どこで切れるかを測る                                      |
 
 - 判断基準: どれかの組み合わせでチャンクが約 1000 ms 間隔で届けば、その設定を判定 API に入れる。どの組み合わせでも 1 チャンクにまとまれば、SWA マネージド Functions の経路では逐次送信できないと判断し、決定 3 のポーリングに進む。
+- 測定結果（2026-11-19、PR #16 のプレビュー環境、ユーザーによる確認）: すべて 1 チャンクにまとまって届いた。応答は既定で Brotli（`br`）で圧縮されていた（`cache-control: no-transform` を付けていても）。
+
+  | ケース                 | content-encoding | 受信                  |
+  | ---------------------- | ---------------- | --------------------- |
+  | plain                  | br               | 4114 ms に 1 チャンク |
+  | sse（パディング 2 KB） | br               | 5116 ms に 1 チャンク |
+  | sse + パディング 16 KB | br               | 5087 ms に 1 チャンク |
+  | sse + パディング 64 KB | br               | 5085 ms に 1 チャンク |
+  | sse + `identity=1`     | identity         | 5088 ms に 1 チャンク |
+  | sse + `impl=node`      | br               | 5088 ms に 1 チャンク |
+  - パディング量・圧縮・ストリームの実装は原因ではない。
+  - この時点の SSE のヘッダーは `content-type: text/event-stream; charset=utf-8`、`cache-control: no-cache, no-transform`、`x-accel-buffering: no`、`x-content-type-options: nosniff` だった。
+
+### Content-Type の完全一致（2026-11-19）
+
+- Azure Web App で SSE が逐次届かなかった事例で、`Content-Type` を `text/event-stream` ちょうど（charset なし）にし、`Cache-Control: no-cache` と `X-Accel-Buffering: no` を付けると届いたという報告がある（https://stackoverflow.com/questions/78584265/fastapi-sse-working-locally-but-not-in-azure-web-app ）。Azure の前段のプロキシは、Content-Type が完全に一致するときだけ逐次転送に切り替えるとみられる。
+- そこで `SSE_HEADERS`（`src/api/src/lib/sse.ts`）を、この 3 つだけにした。判定 API も同じヘッダーになる。比較のため、`/api/diag/stream?format=sse&legacy=1` で以前のヘッダーを返せるようにした。
+- 判断基準: `?format=sse` が約 1000 ms 間隔で届き、`legacy=1` は 1 チャンクのままなら、完全一致が条件だったと確定する。そのうえで、提案フォームでも少しずつ表示されるかを確かめる。どちらも 1 チャンクなら、ポーリング（決定 3）に進む。
 - 測定結果: （プレビュー環境での測定後に追記する）
