@@ -3,29 +3,60 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { Label } from '@/components/ui/label';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 import { api, errorMessage, type Proposal } from '../api/client';
 import {
   EmptyState,
   ErrorMessage,
   formatDate,
   formatScore,
-  LoadingState,
   NoProductSelected,
   PageHeader,
 } from '../components/common';
 import { useConfirm } from '../components/ConfirmDialog';
 import { useProducts } from '../context/ProductContext';
 import { useRouter } from '../router';
+
+/** カードの幅は固定し、画面が広いほど横に並ぶ枚数を増やす。狭い画面では 1 列で縮む。 */
+const GRID = 'grid grid-cols-[repeat(auto-fill,minmax(0,20rem))] gap-4';
+
+/** 本文の冒頭を、改行と連続する空白をまとめたうえで最大 length 文字（コードポイント単位）で返す。 */
+function excerpt(body: string, length = 50): string {
+  const chars = Array.from(body.replace(/\s+/g, ' ').trim());
+  return chars.length > length ? `${chars.slice(0, length).join('')}…` : chars.join('');
+}
+
+function ScoreBadge({
+  label,
+  value,
+  variant,
+}: {
+  label: string;
+  value: number | null | undefined;
+  variant: 'secondary' | 'outline';
+}) {
+  return (
+    <Badge variant={variant} className="gap-1.5">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="tabular-nums">{formatScore(value)}</span>
+    </Badge>
+  );
+}
+
+function CardsLoading() {
+  return (
+    <div className={GRID} aria-busy="true">
+      <span className="sr-only">読み込み中…</span>
+      {Array.from({ length: 3 }, (_, index) => (
+        <Skeleton key={index} className="h-44 rounded-xl" />
+      ))}
+    </div>
+  );
+}
 
 export function ProposalsPage() {
   const { selectedProduct } = useProducts();
@@ -84,20 +115,19 @@ export function ProposalsPage() {
   const toggleAll = () =>
     setSelected(allSelected || !proposals ? new Set() : new Set(proposals.map((p) => p.id)));
 
-  async function removeSelected() {
+  async function deleteProposals(ids: string[], description: string) {
     if (!productId) return;
-    const count = selected.size;
     const ok = await confirm({
       title: '提案の削除',
-      description: `選択した ${count} 件の提案を削除します。よろしいですか？`,
+      description,
       confirmLabel: '削除',
       destructive: true,
     });
     if (!ok) return;
     setBusy(true);
     try {
-      for (const id of selected) await api.deleteProposal(productId, id);
-      toast.success(`${count} 件の提案を削除しました。`);
+      for (const id of ids) await api.deleteProposal(productId, id);
+      toast.success(`${ids.length} 件の提案を削除しました。`);
     } catch (e) {
       setError(errorMessage(e));
     } finally {
@@ -106,7 +136,14 @@ export function ProposalsPage() {
     }
   }
 
-  const [onlySelected] = [...selected];
+  const removeSelected = () =>
+    deleteProposals(
+      [...selected],
+      `選択した ${selected.size} 件の提案を削除します。よろしいですか？`,
+    );
+
+  const removeOne = (proposal: Proposal) =>
+    deleteProposals([proposal.id], `「${proposal.title}」を削除します。よろしいですか？`);
 
   return (
     <section>
@@ -115,14 +152,12 @@ export function ProposalsPage() {
         description={`${selectedProduct.name} への要望・提案と、生成 AI による評価です。`}
         actions={
           <>
-            <Button
-              variant="outline"
-              disabled={selected.size !== 1 || busy}
-              onClick={() => navigate(`/proposals/${encodeURIComponent(onlySelected)}/edit`)}
-            >
-              <PencilIcon />
-              編集
-            </Button>
+            {proposals !== null && proposals.length > 0 && (
+              <div className="flex items-center gap-2 pr-2">
+                <Checkbox id="select-all" checked={allSelected} onCheckedChange={toggleAll} />
+                <Label htmlFor="select-all">すべて選択</Label>
+              </div>
+            )}
             <Button
               variant="outline"
               className="text-destructive hover:text-destructive"
@@ -141,61 +176,80 @@ export function ProposalsPage() {
       />
       <ErrorMessage>{error}</ErrorMessage>
       {proposals === null ? (
-        !error && <LoadingState />
+        !error && <CardsLoading />
       ) : proposals.length === 0 ? (
         <EmptyState>提案がまだありません。「新規登録」から入力してください。</EmptyState>
       ) : (
-        <Card className="gap-0 overflow-hidden py-0">
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow>
-                <TableHead className="w-10 pl-4">
-                  <Checkbox
-                    aria-label="すべて選択"
-                    checked={allSelected}
-                    onCheckedChange={toggleAll}
-                  />
-                </TableHead>
-                <TableHead>タイトル</TableHead>
-                <TableHead>投稿者</TableHead>
-                <TableHead>登録日</TableHead>
-                <TableHead className="text-right">RICE</TableHead>
-                <TableHead className="pr-4 text-right">合致度</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {proposals.map((proposal) => (
-                <TableRow
-                  key={proposal.id}
-                  data-state={selected.has(proposal.id) ? 'selected' : undefined}
+        <ul className={GRID} aria-label="提案の一覧">
+          {proposals.map((proposal) => {
+            const isSelected = selected.has(proposal.id);
+            return (
+              <li key={proposal.id} className="min-w-0">
+                <Card
+                  data-state={isSelected ? 'selected' : undefined}
+                  className={cn(
+                    'h-full gap-3 py-4 transition-shadow',
+                    isSelected && 'ring-2 ring-primary',
+                  )}
                 >
-                  <TableCell className="pl-4">
-                    <Checkbox
-                      aria-label={`${proposal.title} を選択`}
-                      checked={selected.has(proposal.id)}
-                      onCheckedChange={() => toggle(proposal.id)}
+                  <CardHeader className="gap-1 px-4">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Checkbox
+                        aria-label={`${proposal.title} を選択`}
+                        checked={isSelected}
+                        onCheckedChange={() => toggle(proposal.id)}
+                      />
+                      <CardTitle className="line-clamp-1 leading-normal" title={proposal.title}>
+                        {proposal.title}
+                      </CardTitle>
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {proposal.author.name}
+                      <span aria-hidden="true"> · </span>
+                      <span className="tabular-nums">{formatDate(proposal.createdAt)}</span>
+                    </p>
+                  </CardHeader>
+                  <CardContent className="px-4">
+                    <p className="line-clamp-2 text-sm break-words text-muted-foreground">
+                      {excerpt(proposal.body)}
+                    </p>
+                  </CardContent>
+                  <CardFooter className="mt-auto flex-wrap gap-2 px-4">
+                    <ScoreBadge label="RICE" value={proposal.rice?.score} variant="secondary" />
+                    <ScoreBadge
+                      label="合致度"
+                      value={proposal.strategyFit?.score}
+                      variant="outline"
                     />
-                  </TableCell>
-                  <TableCell className="max-w-80 truncate font-medium">{proposal.title}</TableCell>
-                  <TableCell className="text-muted-foreground">{proposal.author.name}</TableCell>
-                  <TableCell className="text-muted-foreground tabular-nums">
-                    {formatDate(proposal.createdAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Badge variant="secondary" className="tabular-nums">
-                      {formatScore(proposal.rice?.score)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="pr-4 text-right">
-                    <Badge variant="outline" className="tabular-nums">
-                      {formatScore(proposal.strategyFit?.score)}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+                    <div className="ml-auto flex items-center">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`${proposal.title} を編集`}
+                        disabled={busy}
+                        onClick={() =>
+                          navigate(`/proposals/${encodeURIComponent(proposal.id)}/edit`)
+                        }
+                      >
+                        <PencilIcon />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive hover:text-destructive"
+                        aria-label={`${proposal.title} を削除`}
+                        disabled={busy}
+                        onClick={() => removeOne(proposal)}
+                      >
+                        <Trash2Icon />
+                      </Button>
+                    </div>
+                  </CardFooter>
+                </Card>
+              </li>
+            );
+          })}
+        </ul>
       )}
       {confirmDialog}
     </section>

@@ -26,7 +26,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { useTheme, type Theme } from '@/context/ThemeContext';
 import { cn } from '@/lib/utils';
 import { useProducts } from '../context/ProductContext';
-import { Link, useRouter } from '../router';
+import { Link, matchPath, useRouter } from '../router';
 
 const MENU: { to: string; label: string; icon: LucideIcon }[] = [
   { to: '/', label: 'ダッシュボード', icon: LayoutDashboardIcon },
@@ -154,6 +154,9 @@ function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
 
 export function Layout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const { path } = useRouter();
+  // 提案一覧は固定幅のカードを並べるので、画面が広いほど並ぶ枚数を増やせるよう幅を制限しない。
+  const wide = matchPath('/proposals', path) !== null;
   return (
     <div className="min-h-screen md:grid md:grid-cols-[15rem_1fr]">
       <aside className="sticky top-0 hidden h-screen flex-col gap-6 border-r bg-sidebar px-3 py-4 text-sidebar-foreground md:flex">
@@ -172,7 +175,9 @@ export function Layout({ children }: { children: ReactNode }) {
       </Sheet>
       <div className="flex min-w-0 flex-col">
         <Header onOpenMenu={() => setMenuOpen(true)} />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 md:px-8 md:py-8">
+        <main
+          className={cn('mx-auto w-full flex-1 px-4 py-6 md:px-8 md:py-8', !wide && 'max-w-6xl')}
+        >
           {children}
         </main>
       </div>
