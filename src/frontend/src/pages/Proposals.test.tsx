@@ -7,7 +7,9 @@ import {
   noContent,
   PRODUCT,
   selectProductInStorage,
-  textStream,
+  deltaStream,
+  eventStream,
+  rawStream,
 } from '../test/fetchMock';
 
 const proposal = (id: string, title: string) => ({
@@ -204,7 +206,7 @@ describe('提案フォーム', () => {
       'GET /api/products': [PRODUCT],
       'GET /api/products/p1/proposals': [],
       'POST /api/products/p1/proposals/review': () =>
-        textStream(['Reach: 対象ユーザー数が不明です。', '\n- 何社が利用しますか？']),
+        deltaStream(['Reach: 対象ユーザー数が不明です。', '\n- 何社が利用しますか？']),
       'POST /api/products/p1/proposals': created,
     });
     openAt('/proposals/new');
@@ -227,7 +229,7 @@ describe('提案フォーム', () => {
   });
 
   it('追記して再判定すると内容を編集できるようになる', async () => {
-    const review = vi.fn<(body: unknown) => Response>(() => textStream(['コメント']));
+    const review = vi.fn<(body: unknown) => Response>(() => deltaStream(['コメント']));
     mockFetch({
       'GET /api/products': [PRODUCT],
       'POST /api/products/p1/proposals/review': review,
@@ -254,7 +256,7 @@ describe('提案フォーム', () => {
       'GET /api/products': [PRODUCT],
       'GET /api/products/p1/proposals': [],
       'GET /api/products/p1/proposals/a1': proposal('a1', '既存の提案'),
-      'POST /api/products/p1/proposals/review': () => textStream(['OK']),
+      'POST /api/products/p1/proposals/review': () => deltaStream(['OK']),
       'PUT /api/products/p1/proposals/a1': updated,
     });
     openAt('/proposals/a1/edit');
@@ -282,5 +284,52 @@ describe('提案フォーム', () => {
       '生成 AI による判定に失敗しました。',
     );
     expect(screen.getByRole('button', { name: '判定' })).toBeEnabled();
+  });
+
+  async function reviewWith(response: () => Response) {
+    mockFetch({
+      'GET /api/products': [PRODUCT],
+      'POST /api/products/p1/proposals/review': response,
+    });
+    openAt('/proposals/new');
+    fireEvent.change(await screen.findByLabelText('タイトル'), { target: { value: 'T' } });
+    fireEvent.change(screen.getByLabelText('内容'), { target: { value: 'B' } });
+    fireEvent.click(screen.getByRole('button', { name: '判定' }));
+  }
+
+  it('イベントがチャンクの境目をまたいでも、コメントを正しくつなげて表示する', async () => {
+    await reviewWith(() =>
+      rawStream([
+        ': padding\n\nevent: del',
+        'ta\ndata: {"text":"Reach: ',
+        '不明"}\n\nevent: delta\ndata: {"text":"です"}\n',
+        '\nevent: done\ndata: {}\n\n',
+      ]),
+    );
+
+    expect(await screen.findByRole('button', { name: 'このまま送信' })).toBeInTheDocument();
+    expect(screen.getByTestId('ai-comment')).toHaveTextContent('Reach: 不明です');
+  });
+
+  it('途中で error イベントを受けたら、届いたコメントを残してエラーを表示し、入力に戻す', async () => {
+    await reviewWith(() =>
+      eventStream([
+        { event: 'delta', data: { text: '途中までのコメント' } },
+        { event: 'error', data: { message: '判定の途中でエラーが発生しました。' } },
+      ]),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      '判定の途中でエラーが発生しました。',
+    );
+    expect(screen.getByTestId('ai-comment')).toHaveTextContent('途中までのコメント');
+    expect(screen.queryByRole('button', { name: 'このまま送信' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '判定' })).toBeEnabled();
+  });
+
+  it('done がないまま応答が終わったら、途中で切れたとしてエラーにする', async () => {
+    await reviewWith(() => eventStream([{ event: 'delta', data: { text: 'コメント' } }]));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('判定の応答が途中で切れました。');
   });
 });

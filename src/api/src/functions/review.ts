@@ -1,4 +1,4 @@
-// 提案の判定。RICE に必要な情報がそろっているかの AI コメントをストリームで返す（ADR 0005）。
+// 提案の判定。RICE に必要な情報がそろっているかの AI コメントを SSE（text/event-stream）で返す（ADR 0005）。
 import {
   app,
   type HttpRequest,
@@ -9,39 +9,43 @@ import { streamText } from '../lib/foundry';
 import { jsonError, logError, readJsonObject } from '../lib/http';
 import { buildReviewPrompt } from '../lib/prompts';
 import { parseProposalInput } from '../lib/proposal-input';
+import { SSE_HEADERS, SSE_PADDING, sseEvent } from '../lib/sse';
 import { getProduct } from '../lib/store';
 
-export const STREAM_ERROR_MARKER =
-  '\n\n[判定の途中でエラーが発生しました。もう一度お試しください。]';
+export const STREAM_ERROR_MESSAGE = '判定の途中でエラーが発生しました。もう一度お試しください。';
 
 /**
- * 差分テキストの列を ReadableStream に変換する。
- * 応答を返した後に失敗した場合は状態コードを変えられないため、本文の末尾に固定の文言を付ける。
+ * 差分テキストの列を SSE（text/event-stream）の ReadableStream に変換する。
+ * 最初にパディングのコメント行を送り、差分ごとに delta、終わったら done を送る。
+ * 応答を返した後に失敗した場合は状態コードを変えられないため、error イベントで知らせて閉じる。
  */
-export function toTextStream(
+export function toEventStream(
   first: string,
   rest: AsyncIterator<string>,
   onError: (error: unknown) => void,
 ): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
+  const send = (controller: ReadableStreamDefaultController<Uint8Array>, text: string) =>
+    controller.enqueue(encoder.encode(text));
   let sentFirst = false;
   return new ReadableStream<Uint8Array>({
     async pull(controller) {
       if (!sentFirst) {
         sentFirst = true;
-        controller.enqueue(encoder.encode(first));
+        send(controller, SSE_PADDING + sseEvent('delta', { text: first }));
         return;
       }
       try {
         const { done, value } = await rest.next();
         if (done) {
+          send(controller, sseEvent('done', {}));
           controller.close();
           return;
         }
-        controller.enqueue(encoder.encode(value));
+        send(controller, sseEvent('delta', { text: value }));
       } catch (error) {
         onError(error);
-        controller.enqueue(encoder.encode(STREAM_ERROR_MARKER));
+        send(controller, sseEvent('error', { message: STREAM_ERROR_MESSAGE }));
         controller.close();
       }
     },
@@ -90,12 +94,8 @@ export async function reviewProposalHandler(
   }
 
   return {
-    headers: {
-      'content-type': 'text/plain; charset=utf-8',
-      'cache-control': 'no-store',
-      'x-content-type-options': 'nosniff',
-    },
-    body: toTextStream(first.value, iterator, (error) =>
+    headers: SSE_HEADERS,
+    body: toEventStream(first.value, iterator, (error) =>
       logError(context, 'Foundry review stream failed', error),
     ),
   };

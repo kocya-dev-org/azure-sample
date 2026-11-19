@@ -7,7 +7,8 @@ vi.mock('../lib/foundry', () => ({ streamText: vi.fn<() => AsyncGenerator<string
 
 import { streamText } from '../lib/foundry';
 import * as store from '../lib/store';
-import { reviewProposalHandler, STREAM_ERROR_MARKER } from './review';
+import { SSE_PADDING } from '../lib/sse';
+import { reviewProposalHandler, STREAM_ERROR_MESSAGE } from './review';
 
 const product = {
   id: 'p1',
@@ -17,15 +18,31 @@ const product = {
   updatedAt: '2026-01-01T00:00:00.000Z',
 };
 
-async function readAll(stream: ReadableStream<Uint8Array>): Promise<string[]> {
+async function readAll(stream: ReadableStream<Uint8Array>): Promise<string> {
   const reader = stream.getReader();
   const decoder = new TextDecoder();
-  const chunks: string[] = [];
+  let text = '';
   for (;;) {
     const { done, value } = await reader.read();
-    if (done) return chunks;
-    chunks.push(decoder.decode(value));
+    if (done) return text;
+    text += decoder.decode(value, { stream: true });
   }
+}
+
+/** パディングを除いた SSE の本文を、{ event, data } の列に分解する。 */
+function parseEvents(text: string): { event: string; data: unknown }[] {
+  expect(text.startsWith(SSE_PADDING)).toBe(true);
+  return text
+    .slice(SSE_PADDING.length)
+    .split('\n\n')
+    .filter(Boolean)
+    .map((block) => {
+      const [eventLine, dataLine] = block.split('\n');
+      return {
+        event: eventLine.replace(/^event: /, ''),
+        data: JSON.parse(dataLine.replace(/^data: /, '')) as unknown,
+      };
+    });
 }
 
 const request = () =>
@@ -36,17 +53,24 @@ beforeEach(() => {
 });
 
 describe('reviewProposalHandler', () => {
-  it('AI のコメントをチャンクごとに返す', async () => {
+  it('AI のコメントを差分ごとに delta イベントで返し、done で終える', async () => {
     vi.mocked(store.getProduct).mockResolvedValue(product);
     vi.mocked(streamText).mockImplementation(async function* () {
       yield 'Reach: ';
-      yield '不足';
+      yield '不足\n- 質問';
     });
 
     const result = await reviewProposalHandler(request(), makeContext());
 
-    expect(result.headers).toMatchObject({ 'content-type': 'text/plain; charset=utf-8' });
-    expect(await readAll(result.body as ReadableStream<Uint8Array>)).toEqual(['Reach: ', '不足']);
+    expect(result.headers).toMatchObject({
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+    });
+    expect(parseEvents(await readAll(result.body as ReadableStream<Uint8Array>))).toEqual([
+      { event: 'delta', data: { text: 'Reach: ' } },
+      { event: 'delta', data: { text: '不足\n- 質問' } },
+      { event: 'done', data: {} },
+    ]);
   });
 
   it('最初の応答前に失敗したら 502 を返す', async () => {
@@ -75,7 +99,7 @@ describe('reviewProposalHandler', () => {
     expect(result.status).toBe(502);
   });
 
-  it('途中で失敗したら固定の文言を付けて終える', async () => {
+  it('途中で失敗したら error イベントを送って終える', async () => {
     vi.mocked(store.getProduct).mockResolvedValue(product);
     vi.mocked(streamText).mockImplementation(async function* () {
       yield '途中まで';
@@ -84,9 +108,12 @@ describe('reviewProposalHandler', () => {
     const context = makeContext();
 
     const result = await reviewProposalHandler(request(), context);
-    const chunks = await readAll(result.body as ReadableStream<Uint8Array>);
+    const events = parseEvents(await readAll(result.body as ReadableStream<Uint8Array>));
 
-    expect(chunks).toEqual(['途中まで', STREAM_ERROR_MARKER]);
+    expect(events).toEqual([
+      { event: 'delta', data: { text: '途中まで' } },
+      { event: 'error', data: { message: STREAM_ERROR_MESSAGE } },
+    ]);
     expect(context.error).toHaveBeenCalledOnce();
   });
 

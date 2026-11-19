@@ -1,5 +1,6 @@
 // API クライアント。同じ Static Web App ホストの /api を呼び出す。
 // シークレットはフロントエンドに置かない（Foundry や GitHub は API 側から呼ぶ）。
+import { readEvents } from './sse';
 
 export interface Person {
   userId: string;
@@ -192,9 +193,11 @@ export const api = {
     ),
 };
 
+const STREAM_CUT_ERROR = '判定の応答が途中で切れました。もう一度お試しください。';
+
 /**
- * 判定コメントをストリームで受け取り、届いた分を onText に渡す。
- * サーバーやプロキシが応答をまとめて返す場合も、まとめて 1 回渡すだけで動作は変わらない。
+ * 判定コメントを SSE（text/event-stream）で受け取り、delta イベントの差分を届いた順に onText に渡す。
+ * done で正常に終わる。error イベント、または done がないまま切れた場合は ApiError を投げる。
  */
 export async function streamReview(
   productId: string,
@@ -209,20 +212,19 @@ export async function streamReview(
     signal,
   });
   if (!response.ok) throw await toApiError(response);
-  if (!response.body) {
-    onText(await response.text());
-    return;
+  if (!response.body) throw new ApiError(STREAM_CUT_ERROR, response.status);
+  for await (const { event, data } of readEvents(response.body)) {
+    const fields = (data ?? {}) as { text?: unknown; message?: unknown };
+    if (event === 'delta' && typeof fields.text === 'string') {
+      onText(fields.text);
+    } else if (event === 'error') {
+      const message = typeof fields.message === 'string' ? fields.message : GENERIC_ERROR;
+      throw new ApiError(message, response.status);
+    } else if (event === 'done') {
+      return;
+    }
   }
-  const reader = response.body.getReader();
-  const decoder = new TextDecoder();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const text = decoder.decode(value, { stream: true });
-    if (text) onText(text);
-  }
-  const rest = decoder.decode();
-  if (rest) onText(rest);
+  throw new ApiError(STREAM_CUT_ERROR, response.status);
 }
 
 export function errorMessage(error: unknown): string {

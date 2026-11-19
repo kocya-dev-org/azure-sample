@@ -91,7 +91,7 @@ func start
 
 ## 動作確認用のエンドポイント
 
-`GET /api/diag/stream` は、HTTP ストリーミングがブラウザーまで届くかを確かめる一時的なエンドポイントです。1 秒ごとに 1 行ずつ返します。PR プレビュー環境での確認が済んだら削除します（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)）。
+`GET /api/diag/stream` は、HTTP ストリーミングがブラウザーまで届くかを確かめる一時的なエンドポイントです。1 秒ごとに 1 行ずつ返します。既定は `text/plain` で、`?format=sse` を付けると判定と同じ SSE 形式で返すので、2 つの届き方を比べられます。PR プレビュー環境での確認が済んだら削除します（[ADR 0005](../plan/decisions/0005-ai-review-streaming.md)）。
 
 ## シークレット検査
 
