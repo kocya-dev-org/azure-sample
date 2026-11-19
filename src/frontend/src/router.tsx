@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type ComponentProps,
   type MouseEvent,
   type ReactNode,
 } from 'react';
@@ -63,31 +64,25 @@ export function matchPath(pattern: string, path: string): Record<string, string>
   return params;
 }
 
-export function Link({
-  to,
-  children,
-  className,
-  ...rest
-}: {
-  to: string;
-  children: ReactNode;
-  className?: string;
-  'aria-current'?: 'page';
-}) {
+export function Link({ to, onClick, ...rest }: Omit<ComponentProps<'a'>, 'href'> & { to: string }) {
   const { navigate } = useRouter();
-  const onClick = (event: MouseEvent<HTMLAnchorElement>) => {
+  const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
+    onClick?.(event);
     // 新しいタブで開く操作はブラウザーに任せる
-    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
       return;
     }
     event.preventDefault();
     navigate(to);
   };
-  return (
-    <a href={to} onClick={onClick} className={className} {...rest}>
-      {children}
-    </a>
-  );
+  return <a href={to} onClick={handleClick} {...rest} />;
 }
 
 export function Redirect({ to }: { to: string }) {

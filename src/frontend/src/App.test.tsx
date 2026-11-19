@@ -1,7 +1,12 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import App from './App';
 import { mockFetch, PRODUCT } from './test/fetchMock';
+
+// ダッシュボードは遅延読み込みのため、初回の変換（Recharts）で findBy が時間切れにならないよう先に読み込む
+beforeAll(async () => {
+  await import('./pages/Dashboard');
+});
 
 beforeEach(() => {
   window.history.replaceState(null, '', '/');
@@ -43,5 +48,31 @@ describe('App', () => {
       'aria-current',
       'page',
     );
+  });
+
+  it('ヘッダーのメニューでテーマを切り替える', async () => {
+    mockFetch({ 'GET /api/products': [] });
+    render(<App />);
+
+    const trigger = screen.getByRole('button', { name: 'テーマの切り替え' });
+    // Radix の DropdownMenu はポインター操作で開く
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'ダーク' }));
+
+    expect(document.documentElement).toHaveClass('dark');
+    expect(window.localStorage.getItem('flyingfish.theme')).toBe('dark');
+  });
+
+  it('狭い画面ではメニューボタンからメニューを開いて移動できる', async () => {
+    mockFetch({ 'GET /api/products': [] });
+    render(<App />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'メニューを開く' }));
+    // jsdom はメディアクエリで隠したサイドバーも DOM に残すため、開いたシートの中に絞る
+    const sheet = within(await screen.findByRole('dialog'));
+    fireEvent.click(sheet.getByRole('link', { name: 'バックログ' }));
+
+    expect(window.location.pathname).toBe('/backlogs');
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 });
