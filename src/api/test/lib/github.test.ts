@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createIssue, getIssueState, GithubError, isGithubEnabled } from './github';
+import { createIssue, getIssueState, GithubError, isGithubEnabled } from '../../src/lib/github';
 
 const TOKEN = 'github_pat_test_token_value';
 

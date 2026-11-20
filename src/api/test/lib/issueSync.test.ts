@@ -1,22 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeContext } from '../../test/helpers';
+import { makeContext } from '../helpers';
 
-vi.mock('./store', () => ({
+vi.mock('../../src/lib/store', () => ({
   getScoredItem: vi.fn<() => Promise<unknown>>(),
   listOpenItemsWithIssue: vi.fn<() => Promise<unknown>>(),
   listProducts: vi.fn<() => Promise<unknown>>(),
   saveScoredItem: vi.fn<() => Promise<void>>(),
 }));
-vi.mock('./github', async (importOriginal) => ({
-  GithubError: (await importOriginal<typeof import('./github')>()).GithubError,
+vi.mock('../../src/lib/github', async (importOriginal) => ({
+  GithubError: (await importOriginal<typeof import('../../src/lib/github')>()).GithubError,
   isGithubEnabled: vi.fn<() => boolean>(),
   getIssueState: vi.fn<() => Promise<unknown>>(),
 }));
 
-import { getIssueState, GithubError, isGithubEnabled } from './github';
-import { isCompleted, syncAllProductsIssueStatus, syncProductIssueStatus } from './issueSync';
-import * as store from './store';
-import type { Product, ScoredItem } from './types';
+import { getIssueState, GithubError, isGithubEnabled } from '../../src/lib/github';
+import {
+  isCompleted,
+  syncAllProductsIssueStatus,
+  syncProductIssueStatus,
+} from '../../src/lib/issueSync';
+import * as store from '../../src/lib/store';
+import type { Product, ScoredItem } from '../../src/lib/types';
 
 const product = {
   id: 'p1',

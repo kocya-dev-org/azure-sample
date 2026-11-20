@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SSE_HEADERS, sseEvent } from './sse';
+import { SSE_HEADERS, sseEvent } from '../../src/lib/sse';
 
 describe('sseEvent', () => {
   it('改行を含むテキストでも data を 1 行の JSON にする', () => {

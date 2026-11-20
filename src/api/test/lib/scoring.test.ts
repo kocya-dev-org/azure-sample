@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./foundry', () => ({ generateJson: vi.fn<() => Promise<unknown>>() }));
+vi.mock('../../src/lib/foundry', () => ({ generateJson: vi.fn<() => Promise<unknown>>() }));
 
-import { generateJson } from './foundry';
-import { InvalidScoringError, scoreProposal } from './scoring';
+import { generateJson } from '../../src/lib/foundry';
+import { InvalidScoringError, scoreProposal } from '../../src/lib/scoring';
 
 const product = { id: 'p1', name: '製品', strategy: '戦略', createdAt: '', updatedAt: '' };
 
