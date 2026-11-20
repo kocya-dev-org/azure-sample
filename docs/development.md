@@ -99,6 +99,20 @@ npm run check:secrets
 
 ビルド成果物にシークレットらしき文字列（接続文字列、アカウントキー、GitHub トークン、API キーの形式）や、実行環境に設定されたシークレットの値そのものがないかを検査します。CI の `verify` ジョブでも実行します。
 
-## API のテスト
+## テストの配置
 
-API のテスト（`*.test.ts`）は `tsconfig.build.json` で除外され、`dist/` に出力されずデプロイにも含まれません。`tsconfig.json` は型検査用（`noEmit`、テストを含む）です。テストが `dist/` に出ると Functions ホストが読み込んで起動に失敗するためです。
+テストはソース（各 workspace の `src/`）と分けて、各 workspace 直下の `test/` に置きます（[ADR 0012](../plan/decisions/0012-test-directory.md)）。`test/` の中は `src/` と同じディレクトリ構成にし、ファイル名は `*.test.ts` / `*.test.tsx` とします。
+
+| 対象                                  | テスト                                      |
+| ------------------------------------- | ------------------------------------------- |
+| `src/api/src/functions/backlogs.ts`   | `src/api/test/functions/backlogs.test.ts`   |
+| `src/api/src/lib/rice.ts`             | `src/api/test/lib/rice.test.ts`             |
+| `src/frontend/src/pages/Backlogs.tsx` | `src/frontend/test/pages/Backlogs.test.tsx` |
+
+- API のテストは、ソースを相対パスで import します（例: `import { ... } from '../../src/lib/store'`）。ヘルパーは `src/api/test/helpers.ts` です。
+- フロントエンドのテストは、テスト対象を `@/` alias で import します（例: `import { BacklogsPage } from '@/pages/Backlogs'`）。テストの共通設定は `src/frontend/test/setup.ts`（`vite.config.ts` の `setupFiles`）、`fetch` のモックは `src/frontend/test/fetchMock.ts` です。
+- 型検査はテストも対象です。API の `tsconfig.json` は `src/**` と `test/**`、フロントエンドの `tsconfig.json` は `src` と `test` を含みます（いずれも `noEmit`）。
+
+### API のテストとデプロイ
+
+API のビルド用の `tsconfig.build.json` は `src/**/*.ts` だけを対象にするため、テストは `dist/` に出力されずデプロイにも含まれません。保険として `**/*.test.ts` も除外しています。テストが `dist/` に出ると Functions ホストが読み込んで起動に失敗するためです。
