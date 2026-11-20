@@ -19,7 +19,7 @@
 | パッケージ管理         | npm workspaces                                               | ルートに lockfile を一本化し、コマンドを一元管理する                                 |
 | 音声入力               | MediaRecorder（ブラウザー標準）+ Foundry `gpt-4o-transcribe` | ライブラリを追加せずに録音でき、文字起こしは既存の `openai` SDK で呼べる（ADR 0011） |
 
-ESLint と Prettier は導入しません。UI の部品とスタイルの選定は [ADR 0009](../plan/decisions/0009-shadcn-ui.md) を参照してください。
+ESLint と Prettier は導入しません。テストは各 workspace 直下の `test/` に、ソースと同じディレクトリ構成で置きます（[ADR 0012](../plan/decisions/0012-test-directory.md)）。UI の部品とスタイルの選定は [ADR 0009](../plan/decisions/0009-shadcn-ui.md) を参照してください。
 
 ## Node.js 24 とマネージド Functions
 
