@@ -32,8 +32,14 @@
 | PUT      | `/products/{productId}/proposals/{id}`   | 更新。本文 `{ title, body }`。スコアリングをやり直す                                     |
 | DELETE   | `/products/{productId}/proposals/{id}`   | 削除（スコア付き項目も削除） → 204                                                       |
 | POST     | `/products/{productId}/proposals/review` | 判定。本文 `{ title, body }`。コメントを `text/event-stream`（SSE）のイベントで返す      |
+| POST     | `/products/{productId}/transcriptions`   | 音声入力の文字起こし。本文は録音した音声のバイナリ。`{ text }` を返す                    |
 
 - 判定とスコアリングで Foundry の呼び出しに失敗した場合は 502 を返します。判定のコメントが 1 文字も返らなかった場合や、スコアリングの出力が値の範囲外だった場合も 502 です。
+- 文字起こし（`transcriptions`）の本文は、録音した音声そのもの（JSON ではない）です（[ADR 0011](../plan/decisions/0011-voice-input-transcription.md)）。
+  - `Content-Type` は `audio/webm` か `audio/mp4` です（`;codecs=...` は無視します）。それ以外は 415 を返します。
+  - 本文が空なら 400、4 MB を超えたら 413、プロダクトがなければ 404、文字起こしに失敗したら 502 を返します。
+  - 音声は保存しません。結果のテキストを返すだけで、提案への追記は画面側で行います。
+  - 文字起こしの設定（`FOUNDRY_TRANSCRIBE_*`）が未設定の場合も 502 です。
 - 判定のコメントは、Server-Sent Events（`text/event-stream`）で返します。最初の差分が届く前の失敗（400・404・502）は、ほかの API と同じく JSON のエラーで返します。
   - `event: delta` / `data: {"text": "…"}`: コメントの差分です。届いた順につなげて表示します。
   - `event: done` / `data: {}`: 正常に終わったことを示します。

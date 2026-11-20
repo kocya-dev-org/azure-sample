@@ -193,6 +193,18 @@ export const api = {
     ),
 };
 
+/** 録音した音声を送り、文字起こしの結果を返す。音声は API 側でも保存しない。 */
+export async function transcribeAudio(productId: string, audio: Blob): Promise<string> {
+  const response = await fetch(`/api/products/${enc(productId)}/transcriptions`, {
+    method: 'POST',
+    headers: { 'content-type': audio.type },
+    body: audio,
+  });
+  if (!response.ok) throw await toApiError(response);
+  const { text } = (await response.json()) as { text?: unknown };
+  return typeof text === 'string' ? text : '';
+}
+
 const STREAM_CUT_ERROR = '判定の応答が途中で切れました。もう一度お試しください。';
 
 /**
