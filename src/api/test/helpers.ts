@@ -3,9 +3,15 @@ import type { HttpRequest, InvocationContext } from '@azure/functions';
 import { vi } from 'vitest';
 
 export function makeRequest(
-  options: { params?: Record<string, string>; body?: unknown; principal?: object } = {},
+  options: {
+    params?: Record<string, string>;
+    body?: unknown;
+    principal?: object;
+    headers?: Record<string, string>;
+    rawBody?: Uint8Array;
+  } = {},
 ): HttpRequest {
-  const headers = new Headers();
+  const headers = new Headers(options.headers);
   if (options.principal) {
     headers.set(
       'x-ms-client-principal',
@@ -18,6 +24,10 @@ export function makeRequest(
     json: async () => {
       if (options.body === undefined) throw new SyntaxError('Unexpected end of JSON input');
       return options.body;
+    },
+    arrayBuffer: async () => {
+      const raw = options.rawBody ?? new Uint8Array();
+      return raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength);
     },
   } as unknown as HttpRequest;
 }

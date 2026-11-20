@@ -11,6 +11,7 @@
 | Cosmos DB for NoSQL     | Free Tier。データベース `flyingfish` に共有スループット 400 RU/s、アカウント上限 1,000 RU/s。コンテナー `products`・`proposals`・`scoredItems`・`backlogs`（[データモデル](./data-model.md)）                                                                                                           | Japan East (`japaneast`)                                   |
 | Blob Storage            | StorageV2 / Standard_LRS。コンテナー `objects` はプライベート。MVP では使っていない                                                                                                                                                                                                                     | Japan East                                                 |
 | Microsoft Foundry       | OpenAI 互換 API（既定モデル `gpt-5-mini`）。提案の判定（ストリーム）とスコアリング（構造化出力）に使う                                                                                                                                                                                                  | —                                                          |
+| 文字起こし用 Foundry    | リソース `voice-stt-foundary`（リソースグループ `sample-app-rc`、Bicep の管理対象外）。モデル `gpt-4o-transcribe` で、提案の音声入力を文字起こしする。API キーで認証し、音声は保存しない（[ADR 0011](../plan/decisions/0011-voice-input-transcription.md)）                                             | —                                                          |
 | GitHub REST API         | バックログ項目の Issue 起票と Issue 状態の確認（任意。トークンが未設定なら無効）                                                                                                                                                                                                                        | —                                                          |
 | 日次バッチ Function App | Flex Consumption（FC1）/ Node.js 24。タイマー関数 `syncIssueStatus` だけを動かし、毎日 18:00 UTC に Issue の状態をバックログ項目へ反映する。ホスト用ストレージは Blob Storage のアカウントを共有する（コンテナー `batch-deployments`）（[ADR 0010](../plan/decisions/0010-issue-status-sync-batch.md)） | Japan East                                                 |
 
@@ -24,14 +25,17 @@
 
 接続情報は SWA のアプリケーション設定に保存し、API が `process.env` から参照します。API は設定を初めて使うときに検査するため、未設定の設定があっても、それを使わない API は動きます。
 
-| 設定                       | 必須 | 設定元                                                                            |
-| -------------------------- | ---- | --------------------------------------------------------------------------------- |
-| `COSMOS_CONNECTION_STRING` | ○    | インフラのデプロイ時に Cosmos DB から取得                                         |
-| `COSMOS_DATABASE_ID`       | —    | 同上（`flyingfish`）                                                              |
-| `FOUNDRY_API_KEY`          | ○    | ジョブ `configure-foundry-settings`。リポジトリ secret `AZURE_AI_FOUNDRY_API_KEY` |
-| `FOUNDRY_ENDPOINT`         | ○    | 同上（ワークフローに記載）                                                        |
-| `FOUNDRY_MODEL`            | —    | 同上（`gpt-5-mini`）                                                              |
-| `ISSUE_GITHUB_TOKEN`       | —    | 同上。リポジトリ secret `ISSUE_GITHUB_TOKEN`。空なら警告を出して設定しない        |
+| 設定                          | 必須 | 設定元                                                                                                                     |
+| ----------------------------- | ---- | -------------------------------------------------------------------------------------------------------------------------- |
+| `COSMOS_CONNECTION_STRING`    | ○    | インフラのデプロイ時に Cosmos DB から取得                                                                                  |
+| `COSMOS_DATABASE_ID`          | —    | 同上（`flyingfish`）                                                                                                       |
+| `FOUNDRY_API_KEY`             | ○    | ジョブ `configure-foundry-settings`。リポジトリ secret `AZURE_AI_FOUNDRY_API_KEY`                                          |
+| `FOUNDRY_ENDPOINT`            | ○    | 同上（ワークフローに記載）                                                                                                 |
+| `FOUNDRY_MODEL`               | —    | 同上（`gpt-5-mini`）                                                                                                       |
+| `ISSUE_GITHUB_TOKEN`          | —    | 同上。リポジトリ secret `ISSUE_GITHUB_TOKEN`。空なら警告を出して設定しない                                                 |
+| `FOUNDRY_TRANSCRIBE_API_KEY`  | —    | 同上。リポジトリ secret `AZURE_AI_FOUNDRY_TRANSCRIBE_API_KEY`。空なら警告を出して、次の 2 つも設定しない（音声入力は無効） |
+| `FOUNDRY_TRANSCRIBE_ENDPOINT` | —    | 同上（ワークフローに記載）                                                                                                 |
+| `FOUNDRY_TRANSCRIBE_MODEL`    | —    | 同上（`gpt-4o-transcribe`）                                                                                                |
 
 日次バッチの Function App のアプリ設定は、すべて Bicep（`infra/main.bicep` の `siteConfig.appSettings`）で定義します。
 
@@ -45,7 +49,7 @@ CLI で設定を足すと、Bicep の再デプロイで消えます。トーク�
 
 ## シークレットの扱い
 
-- Foundry と GitHub は API（サーバー）からだけ呼び出します。フロントエンドにはキーやトークンを置かず、`VITE_*` 環境変数にも入れません。
+- Foundry（文字起こし用を含む）と GitHub は API（サーバー）からだけ呼び出します。フロントエンドにはキーやトークンを置かず、`VITE_*` 環境変数にも入れません。
 - CI の `verify` ジョブで、ビルド成果物（`src/frontend/dist/`・`src/api/dist/`）にシークレットらしき文字列がないことを `npm run check:secrets`（`scripts/check-secrets.mjs`）で検査します。
 - API のログには、エラーの名前・コード・状態・メッセージだけを記録します（`src/api/src/lib/http.ts` の `logError`）。エラーレスポンスは固定の日本語メッセージで、外部サービスの応答本文やヘッダーを含めません。
 - プロンプトのユーザー入力は区切りタグで囲み、指示として扱わないようシステムプロンプトで指定しています（`src/api/src/lib/prompts.ts`）。

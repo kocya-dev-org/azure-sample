@@ -8,11 +8,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { api, errorMessage, streamReview } from '../api/client';
 import { ErrorMessage, NoProductSelected, PageHeader } from '../components/common';
+import { VoiceInput } from '../components/VoiceInput';
 import { useProducts } from '../context/ProductContext';
 import { Link, useRouter } from '../router';
 
 // input: 入力中 / reviewing: 判定中 / reviewed: 判定済み（送信か追記かを選ぶ） / submitting: 送信中
 type Phase = 'loading' | 'input' | 'reviewing' | 'reviewed' | 'submitting';
+
+/** 内容の上限（API の検証と同じ）。 */
+const BODY_MAX_LENGTH = 8000;
 
 export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
   const { selectedProduct } = useProducts();
@@ -23,6 +27,8 @@ export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
   const [body, setBody] = useState('');
   const [comment, setComment] = useState('');
   const [error, setError] = useState('');
+  // 録音中・文字起こし中は判定させない
+  const [voiceBusy, setVoiceBusy] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -108,8 +114,15 @@ export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
     }
   }
 
+  /** 文字起こしの結果を内容の末尾に追記する。 */
+  function appendTranscript(text: string) {
+    setBody((current) =>
+      (current.trimEnd() ? `${current.trimEnd()}\n${text}` : text).slice(0, BODY_MAX_LENGTH),
+    );
+  }
+
   const editable = phase === 'input';
-  const canReview = editable && title.trim() !== '' && body.trim() !== '';
+  const canReview = editable && !voiceBusy && title.trim() !== '' && body.trim() !== '';
 
   return (
     <section className="mx-auto max-w-3xl">
@@ -145,13 +158,22 @@ export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="proposal-body">内容</Label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label htmlFor="proposal-body">内容</Label>
+                <VoiceInput
+                  productId={productId}
+                  disabled={!editable}
+                  onText={appendTranscript}
+                  onBusyChange={setVoiceBusy}
+                  onError={setError}
+                />
+              </div>
               <Textarea
                 id="proposal-body"
                 ref={bodyRef}
                 value={body}
                 onChange={(e) => setBody(e.target.value)}
-                maxLength={8000}
+                maxLength={BODY_MAX_LENGTH}
                 readOnly={!editable}
                 className="min-h-48 read-only:bg-muted/50"
                 placeholder="顧客から聞いた要望や企画の内容。対象ユーザー数、効果、確度、工数の見込みがあれば書いてください。"

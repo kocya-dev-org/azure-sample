@@ -72,6 +72,7 @@ func start
 - `FOUNDRY_API_KEY`（必須）
 - `FOUNDRY_ENDPOINT`（必須）
 - `FOUNDRY_MODEL`（任意。既定 `gpt-5-mini`）
+- `FOUNDRY_TRANSCRIBE_ENDPOINT`・`FOUNDRY_TRANSCRIBE_API_KEY`・`FOUNDRY_TRANSCRIBE_MODEL`（任意）: 音声入力の文字起こし用です。Foundry リソース `voice-stt-foundary` のエンドポイント（`https://voice-stt-foundary.openai.azure.com/`。`/openai/v1/` は付けない）、キー、デプロイ名（`gpt-4o-transcribe`）を設定します。未設定なら文字起こしの API が 502 を返し、それ以外は動きます（[ADR 0011](../plan/decisions/0011-voice-input-transcription.md)）。
 - `ISSUE_GITHUB_TOKEN`（任意）: GitHub Issue 起票用の fine-grained personal access token です。対象リポジトリを限定し、権限は Issues: Read and write だけにします。未設定でも起票以外の機能は動きます。本番環境とプレビュー環境では、リポジトリ secret `ISSUE_GITHUB_TOKEN` に登録します（[ADR 0007](../plan/decisions/0007-github-issue-token.md)）。
 
 コンテナー名はコードの定数です（`src/api/src/lib/cosmos.ts`）。コンテナーがなければ、API が初回アクセス時に作成します。
