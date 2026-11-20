@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import App from '../App';
-import { mockFetch, PRODUCT, selectProductInStorage } from '../test/fetchMock';
+import App from '@/App';
+import { mockFetch, PRODUCT, selectProductInStorage } from '../fetchMock';
 
 const dashboard = {
   totals: { proposals: 12, issues: 3, done: 2 },
@@ -18,7 +18,7 @@ const dashboard = {
 
 // ダッシュボードは遅延読み込みのため、初回の変換（Recharts）で findBy が時間切れにならないよう先に読み込む
 beforeAll(async () => {
-  await import('./Dashboard');
+  await import('@/pages/Dashboard');
 });
 
 beforeEach(() => {

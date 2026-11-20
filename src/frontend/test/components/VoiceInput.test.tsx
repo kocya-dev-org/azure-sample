@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import App from '../App';
-import { json, mockFetch, PRODUCT, selectProductInStorage } from '../test/fetchMock';
+import App from '@/App';
+import { json, mockFetch, PRODUCT, selectProductInStorage } from '../fetchMock';
 
 /** 録音の代わり。stop すると 1 チャンク分のデータを渡して onstop を呼ぶ。 */
 class FakeMediaRecorder {

@@ -1,11 +1,11 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import App from './App';
-import { mockFetch, PRODUCT } from './test/fetchMock';
+import App from '@/App';
+import { mockFetch, PRODUCT } from './fetchMock';
 
 // ダッシュボードは遅延読み込みのため、初回の変換（Recharts）で findBy が時間切れにならないよう先に読み込む
 beforeAll(async () => {
-  await import('./pages/Dashboard');
+  await import('@/pages/Dashboard');
 });
 
 beforeEach(() => {
