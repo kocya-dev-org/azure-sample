@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildReviewPrompt, formatInput } from './prompts';
+import { buildReviewPrompt, formatInput } from '../../src/lib/prompts';
 
 const input = {
   productName: 'P',

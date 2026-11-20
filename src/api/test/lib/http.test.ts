@@ -1,7 +1,7 @@
 import type { HttpRequest, InvocationContext } from '@azure/functions';
 import { describe, expect, it, vi } from 'vitest';
-import { getPrincipal, logError, readString } from './http';
-import { generatedName } from './person';
+import { getPrincipal, logError, readString } from '../../src/lib/http';
+import { generatedName } from '../../src/lib/person';
 
 function requestWithHeader(value?: string): HttpRequest {
   return {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { displayName, generatedName, publicPerson } from './person';
+import { displayName, generatedName, publicPerson } from '../../src/lib/person';
 
 describe('generatedName', () => {
   it('userId ごとに一意で、同じ userId なら同じ名前を返す', () => {

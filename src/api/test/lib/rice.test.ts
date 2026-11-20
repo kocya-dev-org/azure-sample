@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { calcRiceScore, compareForBacklog, toScoringResult, validateRiceValues } from './rice';
-import type { ScoredItem } from './types';
+import {
+  calcRiceScore,
+  compareForBacklog,
+  toScoringResult,
+  validateRiceValues,
+} from '../../src/lib/rice';
+import type { ScoredItem } from '../../src/lib/types';
 
 describe('validateRiceValues', () => {
   it('範囲内の値を受け付ける', () => {

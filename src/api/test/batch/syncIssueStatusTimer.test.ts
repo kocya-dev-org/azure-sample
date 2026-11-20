@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from 'vitest';
-import { makeContext } from '../../test/helpers';
+import { makeContext } from '../helpers';
 
 // 登録内容は import 時に記録する（テストごとのモックのリセットで消えないようにする）
 const registered = vi.hoisted(() => [] as unknown[][]);
 vi.mock('@azure/functions', () => ({
   app: { timer: (...args: unknown[]) => registered.push(args) },
 }));
-vi.mock('../lib/issueSync', () => ({
+vi.mock('../../src/lib/issueSync', () => ({
   syncAllProductsIssueStatus: vi.fn<() => Promise<unknown>>(),
 }));
 
 import type { Timer } from '@azure/functions';
-import { syncAllProductsIssueStatus } from '../lib/issueSync';
-import { SYNC_SCHEDULE, syncIssueStatusTimerHandler } from './syncIssueStatusTimer';
+import { syncAllProductsIssueStatus } from '../../src/lib/issueSync';
+import { SYNC_SCHEDULE, syncIssueStatusTimerHandler } from '../../src/batch/syncIssueStatusTimer';
 
 describe('syncIssueStatusTimer', () => {
   it('毎日 18:00 UTC のタイマーとして登録する', () => {
