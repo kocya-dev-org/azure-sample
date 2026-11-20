@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeContext, makeRequest } from '../../test/helpers';
+import { makeContext, makeRequest } from '../helpers';
 
 vi.mock('@azure/functions', () => ({ app: { http: vi.fn<(...args: unknown[]) => void>() } }));
-vi.mock('../lib/store', () => ({
+vi.mock('../../src/lib/store', () => ({
   getBacklog: vi.fn<() => Promise<unknown>>(),
   getProduct: vi.fn<() => Promise<unknown>>(),
   listBacklogs: vi.fn<() => Promise<unknown[]>>(),
@@ -11,9 +11,14 @@ vi.mock('../lib/store', () => ({
   saveBacklog: vi.fn<() => Promise<void>>(),
 }));
 
-import * as store from '../lib/store';
-import type { Backlog, ScoredItem } from '../lib/types';
-import { createBacklogHandler, getBacklogHandler, selectTopItems, toUtcRange } from './backlogs';
+import * as store from '../../src/lib/store';
+import type { Backlog, ScoredItem } from '../../src/lib/types';
+import {
+  createBacklogHandler,
+  getBacklogHandler,
+  selectTopItems,
+  toUtcRange,
+} from '../../src/functions/backlogs';
 
 const item = (id: string, rice: number, fit: number) =>
   ({

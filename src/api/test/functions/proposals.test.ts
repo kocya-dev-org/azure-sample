@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeContext, makeRequest, PRINCIPAL } from '../../test/helpers';
+import { makeContext, makeRequest, PRINCIPAL } from '../helpers';
 
 vi.mock('@azure/functions', () => ({ app: { http: vi.fn<(...args: unknown[]) => void>() } }));
-vi.mock('../lib/store', () => ({
+vi.mock('../../src/lib/store', () => ({
   deleteProposal: vi.fn<() => Promise<boolean>>(),
   getProduct: vi.fn<() => Promise<unknown>>(),
   getProposal: vi.fn<() => Promise<unknown>>(),
@@ -12,18 +12,18 @@ vi.mock('../lib/store', () => ({
   saveProposal: vi.fn<() => Promise<void>>(),
   saveScoredItem: vi.fn<() => Promise<void>>(),
 }));
-vi.mock('../lib/scoring', () => ({ scoreProposal: vi.fn<() => Promise<unknown>>() }));
+vi.mock('../../src/lib/scoring', () => ({ scoreProposal: vi.fn<() => Promise<unknown>>() }));
 
-import { generatedName } from '../lib/person';
-import { scoreProposal } from '../lib/scoring';
-import * as store from '../lib/store';
-import type { Proposal, ScoredItem } from '../lib/types';
+import { generatedName } from '../../src/lib/person';
+import { scoreProposal } from '../../src/lib/scoring';
+import * as store from '../../src/lib/store';
+import type { Proposal, ScoredItem } from '../../src/lib/types';
 import {
   createProposalHandler,
   deleteProposalHandler,
   listProposalsHandler,
   updateProposalHandler,
-} from './proposals';
+} from '../../src/functions/proposals';
 
 const product = {
   id: 'p1',

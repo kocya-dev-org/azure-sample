@@ -1,15 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeContext, makeRequest } from '../../test/helpers';
+import { makeContext, makeRequest } from '../helpers';
 
 vi.mock('@azure/functions', () => ({ app: { http: vi.fn<(...args: unknown[]) => void>() } }));
-vi.mock('../lib/store', () => ({
+vi.mock('../../src/lib/store', () => ({
   getScoredItem: vi.fn<() => Promise<unknown>>(),
   saveScoredItem: vi.fn<() => Promise<void>>(),
 }));
 
-import * as store from '../lib/store';
-import type { ScoredItem } from '../lib/types';
-import { updateItemStatusHandler } from './items';
+import * as store from '../../src/lib/store';
+import type { ScoredItem } from '../../src/lib/types';
+import { updateItemStatusHandler } from '../../src/functions/items';
 
 const request = (status: unknown) =>
   makeRequest({ params: { productId: 'p1', id: 'a1' }, body: { status } });

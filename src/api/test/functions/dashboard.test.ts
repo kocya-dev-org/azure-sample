@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@azure/functions', () => ({ app: { http: vi.fn<(...args: unknown[]) => void>() } }));
 
-import type { Proposal, ScoredItem } from '../lib/types';
-import { monthKey, recentMonths, summarize } from './dashboard';
+import type { Proposal, ScoredItem } from '../../src/lib/types';
+import { monthKey, recentMonths, summarize } from '../../src/functions/dashboard';
 
 describe('monthKey', () => {
   it('日本時間の年月を返す', () => {

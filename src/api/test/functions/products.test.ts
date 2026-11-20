@@ -1,21 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeContext, makeRequest } from '../../test/helpers';
+import { makeContext, makeRequest } from '../helpers';
 
 vi.mock('@azure/functions', () => ({ app: { http: vi.fn<(...args: unknown[]) => void>() } }));
-vi.mock('../lib/store', () => ({
+vi.mock('../../src/lib/store', () => ({
   listProducts: vi.fn<() => Promise<unknown>>(),
   getProduct: vi.fn<() => Promise<unknown>>(),
   saveProduct: vi.fn<() => Promise<void>>(),
   deleteProductCascade: vi.fn<() => Promise<boolean>>(),
 }));
 
-import * as store from '../lib/store';
+import * as store from '../../src/lib/store';
 import {
   createProductHandler,
   deleteProductHandler,
   parseProductInput,
   updateProductHandler,
-} from './products';
+} from '../../src/functions/products';
 
 beforeEach(() => {
   vi.resetAllMocks();

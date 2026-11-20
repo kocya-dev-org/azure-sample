@@ -1,26 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeContext, makeRequest } from '../../test/helpers';
+import { makeContext, makeRequest } from '../helpers';
 
 vi.mock('@azure/functions', () => ({ app: { http: vi.fn<(...args: unknown[]) => void>() } }));
-vi.mock('../lib/store', () => ({
+vi.mock('../../src/lib/store', () => ({
   getProduct: vi.fn<() => Promise<unknown>>(),
   getProposal: vi.fn<() => Promise<unknown>>(),
   getScoredItem: vi.fn<() => Promise<unknown>>(),
   saveScoredItem: vi.fn<() => Promise<void>>(),
 }));
-vi.mock('../lib/issueSync', () => ({
+vi.mock('../../src/lib/issueSync', () => ({
   syncProductIssueStatus: vi.fn<() => Promise<unknown>>(),
 }));
-vi.mock('../lib/github', () => ({
+vi.mock('../../src/lib/github', () => ({
   isGithubEnabled: vi.fn<() => boolean>(),
   createIssue: vi.fn<() => Promise<unknown>>(),
 }));
 
-import { createIssue, isGithubEnabled } from '../lib/github';
-import { syncProductIssueStatus } from '../lib/issueSync';
-import * as store from '../lib/store';
-import type { ScoredItem } from '../lib/types';
-import { createIssuesHandler, syncIssueStatusHandler } from './issues';
+import { createIssue, isGithubEnabled } from '../../src/lib/github';
+import { syncProductIssueStatus } from '../../src/lib/issueSync';
+import * as store from '../../src/lib/store';
+import type { ScoredItem } from '../../src/lib/types';
+import { createIssuesHandler, syncIssueStatusHandler } from '../../src/functions/issues';
 
 const product = {
   id: 'p1',

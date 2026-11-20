@@ -1,13 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeContext, makeRequest } from '../../test/helpers';
+import { makeContext, makeRequest } from '../helpers';
 
 vi.mock('@azure/functions', () => ({ app: { http: vi.fn<(...args: unknown[]) => void>() } }));
-vi.mock('../lib/store', () => ({ getProduct: vi.fn<() => Promise<unknown>>() }));
-vi.mock('../lib/foundry', () => ({ streamText: vi.fn<() => AsyncGenerator<string>>() }));
+vi.mock('../../src/lib/store', () => ({ getProduct: vi.fn<() => Promise<unknown>>() }));
+vi.mock('../../src/lib/foundry', () => ({ streamText: vi.fn<() => AsyncGenerator<string>>() }));
 
-import { streamText } from '../lib/foundry';
-import * as store from '../lib/store';
-import { reviewProposalHandler, STREAM_ERROR_MESSAGE } from './review';
+import { streamText } from '../../src/lib/foundry';
+import * as store from '../../src/lib/store';
+import { reviewProposalHandler, STREAM_ERROR_MESSAGE } from '../../src/functions/review';
 
 const product = {
   id: 'p1',

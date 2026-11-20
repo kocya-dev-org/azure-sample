@@ -1,15 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { makeContext, makeRequest } from '../../test/helpers';
+import { makeContext, makeRequest } from '../helpers';
 
 vi.mock('@azure/functions', () => ({ app: { http: vi.fn<(...args: unknown[]) => void>() } }));
-vi.mock('../lib/store', () => ({ getProduct: vi.fn<() => Promise<unknown>>() }));
-vi.mock('../lib/transcription', () => ({
+vi.mock('../../src/lib/store', () => ({ getProduct: vi.fn<() => Promise<unknown>>() }));
+vi.mock('../../src/lib/transcription', () => ({
   transcribe: vi.fn<(audio: Buffer, fileName: string) => Promise<string>>(),
 }));
 
-import * as store from '../lib/store';
-import { transcribe } from '../lib/transcription';
-import { audioFileName, MAX_AUDIO_BYTES, transcribeHandler } from './transcriptions';
+import * as store from '../../src/lib/store';
+import { transcribe } from '../../src/lib/transcription';
+import {
+  audioFileName,
+  MAX_AUDIO_BYTES,
+  transcribeHandler,
+} from '../../src/functions/transcriptions';
 
 const product = {
   id: 'p1',
