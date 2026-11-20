@@ -197,7 +197,7 @@ jobs:
           set -euo pipefail
           # トークンは任意。未設定でも Issue 起票以外は動くため、失敗にしない（ADR 0007）
           if [[ -z "$ISSUE_GITHUB_TOKEN" ]]; then
-            echo "::warning::Repository secret ISSUE_GITHUB_TOKEN is not configured. GitHub Issue creation stays disabled."
+            echo "::warning::Repository secret ISSUE_GITHUB_TOKEN is not configured. GitHub Issue creation and the implementation check stay disabled."
             exit 0
           fi
           static_web_app_name=$(az deployment group show \
