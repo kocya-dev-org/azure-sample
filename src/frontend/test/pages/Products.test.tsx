@@ -1,9 +1,9 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ProductProvider } from '../context/ProductContext';
-import { RouterProvider } from '../router';
-import { json, mockFetch, noContent, PRODUCT } from '../test/fetchMock';
-import { ProductsPage } from './Products';
+import { ProductProvider } from '@/context/ProductContext';
+import { RouterProvider } from '@/router';
+import { json, mockFetch, noContent, PRODUCT } from '../fetchMock';
+import { ProductsPage } from '@/pages/Products';
 
 function renderPage() {
   return render(

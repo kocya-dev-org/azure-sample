@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { rawStream } from '../test/fetchMock';
-import { readEvents, type SseEvent } from './sse';
+import { rawStream } from '../fetchMock';
+import { readEvents, type SseEvent } from '@/api/sse';
 
 async function collect(chunks: string[]): Promise<SseEvent[]> {
   const events: SseEvent[] = [];

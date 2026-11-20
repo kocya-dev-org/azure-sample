@@ -1,8 +1,8 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import App from '../App';
-import { json, mockFetch, PRODUCT, selectProductInStorage } from '../test/fetchMock';
-import { tokyoDate } from './Backlogs';
+import App from '@/App';
+import { json, mockFetch, PRODUCT, selectProductInStorage } from '../fetchMock';
+import { tokyoDate } from '@/pages/Backlogs';
 
 const backlog = {
   id: 'b1',
