@@ -230,7 +230,7 @@ jobs:
             --name "$static_web_app_name" \
             --setting-names \
               "FOUNDRY_TRANSCRIBE_API_KEY=$FOUNDRY_TRANSCRIBE_API_KEY" \
-              'FOUNDRY_TRANSCRIBE_ENDPOINT=https://voice-stt-foundary.openai.azure.com/openai/v1/' \
+              'FOUNDRY_TRANSCRIBE_ENDPOINT=https://voice-stt-foundary.openai.azure.com/' \
               'FOUNDRY_TRANSCRIBE_MODEL=gpt-4o-transcribe' \
             --output none
 

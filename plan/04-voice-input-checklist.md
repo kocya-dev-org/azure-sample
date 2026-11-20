@@ -11,19 +11,19 @@
 ## 手作業
 
 - [x] Foundry リソース `voice-stt-foundary`（リソースグループ `sample-app-rc`）を作成し、`gpt-4o-transcribe` をデプロイする（ユーザー実施済み）
-- [ ] `voice-stt-foundary` の「キーとエンドポイント」で、エンドポイントとキー 1 を確認する
-  - 完了条件: エンドポイントが `https://voice-stt-foundary.openai.azure.com/` であること。違う場合は `.github/workflows/deploy.yml` の `FOUNDRY_TRANSCRIBE_ENDPOINT` を直す。
-- [ ] `voice-stt-foundary` の「ネットワーク」が、すべてのネットワークからのアクセスを許可していることを確認する
-- [ ] 疎通を確認する
-  - 完了条件: 次のコマンドで日本語のテキストが返る。
+- [x] `voice-stt-foundary` の「キーとエンドポイント」で、エンドポイントとキー 1 を確認する
+  - 完了条件: エンドポイントが `https://voice-stt-foundary.openai.azure.com/` であること（2026-11-20 に確認）。違う場合は `.github/workflows/deploy.yml` の `FOUNDRY_TRANSCRIBE_ENDPOINT` を直す。
+- [x] `voice-stt-foundary` の「ネットワーク」が、すべてのネットワークからのアクセスを許可していることを確認する
+- [x] 疎通を確認する（2026-11-20）
+  - 完了条件: 次のコマンドで 200 とテキストが返る。v1 のパス（`/openai/v1/audio/transcriptions`）は `DeploymentNotFound` を返すため使わない。
 
     ```bash
-    curl -sS "https://voice-stt-foundary.openai.azure.com/openai/v1/audio/transcriptions" \
+    curl -sS "https://voice-stt-foundary.openai.azure.com/openai/deployments/gpt-4o-transcribe/audio/transcriptions?api-version=2025-03-01-preview" \
       -H "api-key: <キー>" \
-      -F model=gpt-4o-transcribe -F language=ja -F file=@sample.webm
+      -F language=ja -F file=@sample.webm
     ```
 
-- [ ] GitHub リポジトリの Settings → Secrets and variables → Actions に、secret `AZURE_AI_FOUNDRY_TRANSCRIBE_API_KEY` を登録する
+- [x] GitHub リポジトリの Settings → Secrets and variables → Actions に、secret `AZURE_AI_FOUNDRY_TRANSCRIBE_API_KEY` を登録する
 - [ ] （任意）ローカル開発用に、`src/api/local.settings.json` の `Values` に `FOUNDRY_TRANSCRIBE_ENDPOINT`・`FOUNDRY_TRANSCRIBE_API_KEY`・`FOUNDRY_TRANSCRIBE_MODEL` を設定する
 
 ## Step 1: API
@@ -56,6 +56,9 @@
   - 対象ファイル: `docs/features.md`, `docs/api.md`, `docs/architecture.md`, `docs/tech-stack.md`, `docs/development.md`, `AGENTS.md`
 
 ## Step 4: 検証
+
+- [ ] SWA のアプリケーション設定に `FOUNDRY_TRANSCRIBE_*` が入っている
+  - 設定ジョブ `configure-foundry-settings` は `main` への push か手動実行でしか動かない。PR のプレビューで試す場合は、先に設定を入れる。
 
 - [ ] PR プレビュー環境の Chrome で、録音 → 文字起こし → 判定 → 送信が通る
 - [ ] iOS Safari（`audio/mp4`）で、同じ流れが通る

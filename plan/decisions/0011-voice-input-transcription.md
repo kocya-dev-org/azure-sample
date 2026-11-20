@@ -51,6 +51,12 @@
 - 文字起こし用リソースのネットワークは、すべてのネットワークからのアクセスを許可しておく必要がある。SWA マネージド API の送信元 IP は固定できない。
 - 検証待ちの事項:
   - SWA マネージド API がこのサイズの本文を受け付けること。
-  - `voice-stt-foundary` の v1 エンドポイント（`https://voice-stt-foundary.openai.azure.com/openai/v1/`）から `gpt-4o-transcribe` を呼べること。
   - PR プレビュー環境の Chrome と iOS Safari で、録音から送信まで通ること。
 - v1 エンドポイントで呼べない場合は、`AzureOpenAI` クライアント（`apiVersion` を指定）に切り替える。その際はこの ADR に追記する。
+
+## 追記（2026-11-20）: v1 エンドポイントをやめ、`AzureOpenAI` クライアントで呼ぶ
+
+- PR プレビュー環境で確かめたところ、`https://voice-stt-foundary.openai.azure.com/openai/v1/audio/transcriptions` は `404 DeploymentNotFound` を返した。`services.ai.azure.com` の v1 パスも同じだった。
+- デプロイ名を指定する従来のパス `/openai/deployments/gpt-4o-transcribe/audio/transcriptions?api-version=2025-03-01-preview` は 200 を返した。
+- そのため `src/api/src/lib/transcription.ts` は、`AzureOpenAI` クライアントに `endpoint`（リソースのエンドポイント）、`deployment`、`apiVersion: '2025-03-01-preview'` を指定して呼ぶ。
+- `FOUNDRY_TRANSCRIBE_ENDPOINT` には `/openai/v1/` を付けず、`https://voice-stt-foundary.openai.azure.com/` を設定する。
