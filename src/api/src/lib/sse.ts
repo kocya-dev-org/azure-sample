@@ -1,5 +1,5 @@
 // Server-Sent Events（text/event-stream）の組み立て（ADR 0005）。
-// イベントの形式は docs/api.md と src/frontend/src/api/sse.ts と一致させる。
+// イベント（delta・implementation・error・done）の形式は docs/api.md と src/frontend/src/api/sse.ts と一致させる。
 
 /**
  * SSE の応答ヘッダー。

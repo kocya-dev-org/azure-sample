@@ -4,8 +4,12 @@ import { makeContext, makeRequest } from '../../test/helpers';
 vi.mock('@azure/functions', () => ({ app: { http: vi.fn<(...args: unknown[]) => void>() } }));
 vi.mock('../lib/store', () => ({ getProduct: vi.fn<() => Promise<unknown>>() }));
 vi.mock('../lib/foundry', () => ({ streamText: vi.fn<() => AsyncGenerator<string>>() }));
+vi.mock('../lib/implementationCheck', () => ({
+  checkImplementation: vi.fn<(input: unknown, signal: AbortSignal) => Promise<unknown>>(),
+}));
 
 import { streamText } from '../lib/foundry';
+import { checkImplementation } from '../lib/implementationCheck';
 import * as store from '../lib/store';
 import { reviewProposalHandler, STREAM_ERROR_MESSAGE } from './review';
 
@@ -45,8 +49,14 @@ function parseEvents(text: string): { event: string; data: unknown }[] {
 const request = () =>
   makeRequest({ params: { productId: 'p1' }, body: { title: 'タイトル', body: '内容' } });
 
+const implemented = {
+  status: 'implemented',
+  explanation: '提案フォームの「音声で入力」ボタンで使えます。',
+};
+
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(checkImplementation).mockResolvedValue(implemented as never);
 });
 
 describe('reviewProposalHandler', () => {
@@ -67,8 +77,61 @@ describe('reviewProposalHandler', () => {
     expect(parseEvents(await readAll(result.body as ReadableStream<Uint8Array>))).toEqual([
       { event: 'delta', data: { text: 'Reach: ' } },
       { event: 'delta', data: { text: '不足\n- 質問' } },
+      { event: 'implementation', data: implemented },
       { event: 'done', data: {} },
     ]);
+    expect(vi.mocked(checkImplementation).mock.calls[0][0]).toEqual({
+      productName: '製品',
+      strategy: '戦略',
+      title: 'タイトル',
+      body: '内容',
+    });
+  });
+
+  it('実装状況の確認はコメントの生成と並行して始める', async () => {
+    vi.mocked(store.getProduct).mockResolvedValue(product);
+    const order: string[] = [];
+    vi.mocked(checkImplementation).mockImplementation(async () => {
+      order.push('check');
+      return implemented as never;
+    });
+    vi.mocked(streamText).mockImplementation(async function* () {
+      order.push('review');
+      yield 'コメント';
+    });
+
+    await reviewProposalHandler(request(), makeContext());
+
+    expect(order).toEqual(['check', 'review']);
+  });
+
+  it('最初の応答前に失敗したら実装状況の確認も中断する', async () => {
+    vi.mocked(store.getProduct).mockResolvedValue(product);
+    vi.mocked(streamText).mockImplementation(async function* () {
+      yield* [];
+      throw new Error('timeout');
+    });
+
+    await reviewProposalHandler(request(), makeContext());
+
+    const signal = vi.mocked(checkImplementation).mock.calls[0][1];
+    expect(signal.aborted).toBe(true);
+  });
+
+  it('途中で切断されたら実装状況の確認も中断する', async () => {
+    vi.mocked(store.getProduct).mockResolvedValue(product);
+    vi.mocked(streamText).mockImplementation(async function* () {
+      yield '1';
+      yield '2';
+    });
+
+    const result = await reviewProposalHandler(request(), makeContext());
+    const reader = (result.body as ReadableStream<Uint8Array>).getReader();
+    await reader.read();
+    await reader.cancel();
+
+    const signal = vi.mocked(checkImplementation).mock.calls[0][1];
+    expect(signal.aborted).toBe(true);
   });
 
   it('最初の応答前に失敗したら 502 を返す', async () => {

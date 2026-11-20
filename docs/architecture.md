@@ -1,6 +1,6 @@
 # アーキテクチャ
 
-構成図は [architecture.drawio](./architecture.drawio) を参照してください（図は土台構築時点の内容に日次バッチと GitHub を追記したもので、MVP のその他の内容は未反映です）。
+構成図は [architecture.drawio](./architecture.drawio) を参照してください（図は土台構築時点の内容に日次バッチと GitHub（Issue と Copilot Spaces）を追記したもので、MVP のその他の内容は未反映です）。
 
 ## 構成
 
@@ -12,6 +12,7 @@
 | Blob Storage            | StorageV2 / Standard_LRS。コンテナー `objects` はプライベート。MVP では使っていない                                                                                                                                                                                                                     | Japan East                                                 |
 | Microsoft Foundry       | OpenAI 互換 API（既定モデル `gpt-5-mini`）。提案の判定（ストリーム）とスコアリング（構造化出力）に使う                                                                                                                                                                                                  | —                                                          |
 | 文字起こし用 Foundry    | リソース `voice-stt-foundary`（リソースグループ `sample-app-rc`、Bicep の管理対象外）。モデル `gpt-4o-transcribe` で、提案の音声入力を文字起こしする。API キーで認証し、音声は保存しない（[ADR 0011](../plan/decisions/0011-voice-input-transcription.md)）                                             | —                                                          |
+| GitHub MCP サーバー     | 判定時の実装状況の確認。Copilot Spaces ツールで Space `kocya-dev-org/spaces-azure-sample` の内容を取得する（任意。`ISSUE_GITHUB_TOKEN` が未設定なら確認しない。[ADR 0012](../plan/decisions/0012-implementation-check-copilot-spaces.md)）                                                              |
 | GitHub REST API         | バックログ項目の Issue 起票と Issue 状態の確認（任意。トークンが未設定なら無効）                                                                                                                                                                                                                        | —                                                          |
 | 日次バッチ Function App | Flex Consumption（FC1）/ Node.js 24。タイマー関数 `syncIssueStatus` だけを動かし、毎日 18:00 UTC に Issue の状態をバックログ項目へ反映する。ホスト用ストレージは Blob Storage のアカウントを共有する（コンテナー `batch-deployments`）（[ADR 0010](../plan/decisions/0010-issue-status-sync-batch.md)） | Japan East                                                 |
 
@@ -32,7 +33,7 @@
 | `FOUNDRY_API_KEY`             | ○    | ジョブ `configure-foundry-settings`。リポジトリ secret `AZURE_AI_FOUNDRY_API_KEY`                                          |
 | `FOUNDRY_ENDPOINT`            | ○    | 同上（ワークフローに記載）                                                                                                 |
 | `FOUNDRY_MODEL`               | —    | 同上（`gpt-5-mini`）                                                                                                       |
-| `ISSUE_GITHUB_TOKEN`          | —    | 同上。リポジトリ secret `ISSUE_GITHUB_TOKEN`。空なら警告を出して設定しない                                                 |
+| `ISSUE_GITHUB_TOKEN`          | —    | 同上。リポジトリ secret `ISSUE_GITHUB_TOKEN`。空なら警告を出して設定しない（Issue 起票と判定時の実装状況の確認が無効）     |
 | `FOUNDRY_TRANSCRIBE_API_KEY`  | —    | 同上。リポジトリ secret `AZURE_AI_FOUNDRY_TRANSCRIBE_API_KEY`。空なら警告を出して、次の 2 つも設定しない（音声入力は無効） |
 | `FOUNDRY_TRANSCRIBE_ENDPOINT` | —    | 同上（ワークフローに記載）                                                                                                 |
 | `FOUNDRY_TRANSCRIBE_MODEL`    | —    | 同上（`gpt-4o-transcribe`）                                                                                                |
