@@ -8,22 +8,23 @@ Flyingfish は Azure 上で提供するクラウドサービスのプロダク�
 
 ## リポジトリ構成とデプロイ後のアーキテクチャ
 
-- `package.json`（ルート）: npm workspaces（`src/frontend`、`src/api`）の定義と、lint・format・型チェック・テスト・ビルドの共通スクリプトを持ちます。lockfile はルートの `package-lock.json` に一本化します。
+- `package.json`（ルート）: npm workspaces（`src/frontend`、`src/api`、`src/relay`）の定義と、lint・format・型チェック・テスト・ビルドの共通スクリプトを持ちます。lockfile はルートの `package-lock.json` に一本化します。
 - `.node-version`: 開発・CI で使う Node.js のメジャーバージョン（`24`）です。
-- `.oxlintrc.json`・oxfmt 設定・`vitest.config.ts`（ルート）: lint・format・テストの共通設定です。vitest は `test.projects` で frontend（jsdom）と api（node）を束ねます。
-- `infra/main.bicep`: リソースグループをスコープとするデプロイ定義です。Cosmos DB とアプリケーション用 Blob Storage は Japan East (`japaneast`)、SWA マネージド Functions バックエンドは、マネージド API がサポートされているリージョンの East Asia (`eastasia`) に配置します。Free レベルの Static Web App、Free Tier の Cosmos DB アカウント、アプリケーションデータ用ストレージアカウントと、日次バッチ（Issue 状態の同期）用の Flex Consumption の Function App（Japan East。ホスト用ストレージはアプリケーションデータ用ストレージアカウントを共有）を作成します。
+- `.oxlintrc.json`・oxfmt 設定・`vitest.config.ts`（ルート）: lint・format・テストの共通設定です。vitest は `test.projects` で frontend（jsdom）と api（node）と relay（node）を束ねます。
+- `infra/main.bicep`: リソースグループをスコープとするデプロイ定義です。Cosmos DB とアプリケーション用 Blob Storage は Japan East (`japaneast`)、SWA マネージド Functions バックエンドは、マネージド API がサポートされているリージョンの East Asia (`eastasia`) に配置します。Free レベルの Static Web App、Free Tier の Cosmos DB アカウント、アプリケーションデータ用ストレージアカウントと、日次バッチ（Issue 状態の同期）用の Flex Consumption の Function App（Japan East。ホスト用ストレージはアプリケーションデータ用ストレージアカウントを共有）、音声会話の中継用の App Service（Linux、F1、Japan East。ADR 0013）を作成します。
 - Cosmos DB と Blob Storage ではパブリックネットワークアクセスを有効にします。Blob コンテナーはプライベートのままにします（Blob Storage は MVP では使っていません）。Cosmos DB のアカウント接続文字列は、SWA API のアプリケーション設定に保存して使用します。この接続文字列を使う構成では、Cosmos DB のローカルキー認証を有効にします。Cosmos DB のコンテナーは `products`・`proposals`・`scoredItems`・`backlogs` で、Bicep の定義と `src/api/src/lib/cosmos.ts` の定義を一致させます（API が初回アクセス時にも作成します。ADR 0008）。
 - Cosmos DB では Free Tier を使用し、共有スループット 400 RU/s のデータベースを設定します。アカウントのスループット上限は 1,000 RU/s です。Free Tier を利用できるのはサブスクリプションごとに 1 アカウントまでで、対象は最大 1,000 RU/s、ストレージ 25 GB です。
 - `infra/environments/dev.bicepparam`: `main.bicep` 用の開発環境パラメーターです。Japan East のデータ配置先と `dev` タグを含みます。
 - `src/frontend/`: React + TypeScript の SPA（Vite プロジェクト）です。エントリーは `index.html` と `src/main.tsx`、ビルド出力は `src/frontend/dist/` です。UI は shadcn/ui（Tailwind CSS v4 + Radix、ADR 0009）で、生成した部品は `src/components/ui/`、テーマトークンとエントリーの CSS は `src/index.css`、shadcn の設定は `components.json` にあります。`@/` は `src/frontend/src/` を指す alias です（`tsconfig.json` と `vite.config.ts`）。テーマ（ライト・ダーク・システム）は `src/context/ThemeContext.tsx` で管理します。テストは `test/` に `src/` と同じディレクトリ構成で置き、テストの共通設定（`setup.ts`）とヘルパー（`fetchMock.ts`）は `test/` 直下にあります。`public/staticwebapp.config.json` はビルド時に `dist/` へ同梱され、マネージド Functions のランタイム（`platform.apiRuntime`）、SWA のルート認証、SPA 用の `navigationFallback` を設定します。
 - `src/api/`: SWA マネージド Azure Functions v4 API です。TypeScript でビルドします。HTTP ハンドラーは `src/api/src/functions/`、共通モジュール（Cosmos DB、Foundry、プロンプト、RICE、GitHub、HTTP 共通処理）は `src/api/src/lib/` にあります。マネージド Functions がサポートするのは HTTP トリガーのみのため、タイマー関数（`src/api/src/batch/`）は SWA 用エントリーの `src/api/src/index.ts` から import せず、バッチ用エントリーの `src/api/src/batch.ts` から読み込みます。バッチは独立した Function App（Flex Consumption、Japan East）にデプロイします（`npm run stage:batch`、ADR 0010）。Microsoft Foundry の設定（`FOUNDRY_*`。音声入力の文字起こし用 Foundry の `FOUNDRY_TRANSCRIBE_*` は任意、ADR 0011）と GitHub Issue 起票用のトークン（`ISSUE_GITHUB_TOKEN`、任意）も SWA API のアプリケーション設定から読み込みます。設定は import 時ではなく使うときに検査します。テストは `src/api/test/` に `src/api/src/` と同じディレクトリ構成（`functions/`・`lib/`・`batch/`）で置き、ヘルパーは `src/api/test/helpers.ts` です。
-- `.github/workflows/deploy.yml`: パスフィルター付きの Bicep 検証とデプロイ、SWA API のアプリケーション設定、Node.js 24 での検証（format・lint・型チェック・テスト・ビルド）、ビルド済みのフロントエンドとマネージド API の一括デプロイ、日次バッチの Function App のデプロイ、PR プレビュー環境の作成とクローズを定義します。
+- `src/relay/`: 提案の音声会話の中継です（App Service F1 で動く Node.js の HTTP サーバー、ADR 0013）。WebRTC がブロックされ、マネージド Functions が WebSocket を扱えないため、ブラウザーとは HTTPS（POST と SSE）、Foundry の Realtime API（`gpt-realtime-2.1-mini`）とは `ws` パッケージの WebSocket でつなぎます。エントリーは `src/relay/src/server.ts`（`main` は `dist/src/server.js`）、HTTP ハンドラーは `src/relay/src/app.ts`、チケットの検証・セッション・Foundry との接続は `src/relay/src/lib/` にあります。チケットは SWA API（`src/api/src/functions/voiceSessions.ts`、`src/api/src/lib/relayTicket.ts`）が HMAC で署名し、指示文とツールもチケットに入れます（中継はプロンプトを持ちません）。チケットの形式を変えるときは、両方のテストのテストベクターを合わせてください。設定は起動時に検査します。テストは `src/relay/test/`、ヘルパーは `src/relay/test/helpers.ts` です。
+- `.github/workflows/deploy.yml`: パスフィルター付きの Bicep 検証とデプロイ、SWA API のアプリケーション設定、Node.js 24 での検証（format・lint・型チェック・テスト・ビルド）、ビルド済みのフロントエンドとマネージド API の一括デプロイ、日次バッチの Function App のデプロイ、音声会話の中継の App Service へのデプロイ、PR プレビュー環境の作成とクローズを定義します。
 - `plan/`: 作業手順、チェックリスト、技術的な意思決定記録（`plan/decisions/` の ADR）を置きます。
 - `docs/`: アプリケーションの仕様（アーキテクチャ、技術スタック、開発手順、機能仕様）を置きます。`docs/architecture.drawio` は構成図です。
 
 ## コマンド
 
-ルートで実行します。各 workspace 固有のスクリプトは `src/frontend/package.json` と `src/api/package.json` を正とします。
+ルートで実行します。各 workspace 固有のスクリプトは `src/frontend/package.json`・`src/api/package.json`・`src/relay/package.json` を正とします。
 
 - `npm ci`: 依存関係のインストール
 - `npm run format` / `npm run format:check`: oxfmt による整形 / 整形チェック
@@ -33,7 +34,8 @@ Flyingfish は Azure 上で提供するクラウドサービスのプロダク�
 - `npm run build`: 全 workspace のビルド
 - `npm run stage:api`: ビルド済み API を本番依存のみで `.deploy/api` にステージング（CI のデプロイ用。`scripts/stage-api.mjs`）
 - `npm run stage:batch`: 日次バッチ用の Function App の成果物を `.deploy/batch` にステージング（`main` を `dist/src/batch.js` に書き換える）
-- `npm run check:secrets`: ビルド成果物（`src/frontend/dist`・`src/api/dist`）にシークレットらしき文字列がないかを検査（`scripts/check-secrets.mjs`）
+- `npm run stage:relay`: 音声会話の中継の成果物を、本番依存（`ws`）だけで `.deploy/relay` にステージング
+- `npm run check:secrets`: ビルド成果物（`src/frontend/dist`・`src/api/dist`・`src/relay/dist`）にシークレットらしき文字列がないかを検査（`scripts/check-secrets.mjs`）
 
 変更後は `npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run check:secrets` が通ることを確認してください。
 
@@ -46,8 +48,8 @@ Flyingfish は Azure 上で提供するクラウドサービスのプロダク�
 - SWA へのデプロイは、CI 上で Node.js 24 を使ってビルドした成果物をアップロードする方式です（`skip_app_build` / `skip_api_build`）。SWA 側のビルド（Oryx）には依存しないでください。
 - `infra/main.bicep` と `infra/environments/dev.bicepparam` の Cosmos DB および Blob Storage の配置先を、意図するデータリージョンに合わせてください。SWA マネージド Functions の配置先はサポート対象リージョンに限られます。現在の API リージョンは East Asia です。
 - Azure リソースのプロパティ、パブリックネットワーク規則、ランタイムバージョン、デプロイ先のパス、GitHub 権限、シークレット名を変更する場合は、関連する設定も合わせて変更してください。認証情報の値をソースファイルに記載してはいけません。
-- ワークフローでは `az bicep lint`、`az bicep build`、`az bicep build-params` を使ってインフラストラクチャを検証します。Azure のデプロイには GitHub OIDC 認証情報（`AZURE_CLIENT_ID`、`AZURE_TENANT_ID`、`AZURE_SUBSCRIPTION_ID`）と `AZURE_RESOURCE_GROUP` を使用します。SWA のデプロイには `AZURE_STATIC_WEB_APPS_API_TOKEN` を使用します。API のアプリケーション設定には、リポジトリ secret の `AZURE_AI_FOUNDRY_API_KEY`（必須）と `ISSUE_GITHUB_TOKEN`（任意。空なら警告のみ）、`AZURE_AI_FOUNDRY_TRANSCRIBE_API_KEY`（任意。空なら警告のみで音声入力は無効）を使用します。
-- Foundry や GitHub などの外部サービスは API からだけ呼び出し、キーやトークンをフロントエンドに置かないでください。API のエラーログには `src/api/src/lib/http.ts` の `logError` を使い、エラーレスポンスには外部サービスの応答本文を含めないでください。
+- ワークフローでは `az bicep lint`、`az bicep build`、`az bicep build-params` を使ってインフラストラクチャを検証します。Azure のデプロイには GitHub OIDC 認証情報（`AZURE_CLIENT_ID`、`AZURE_TENANT_ID`、`AZURE_SUBSCRIPTION_ID`）と `AZURE_RESOURCE_GROUP` を使用します。SWA のデプロイには `AZURE_STATIC_WEB_APPS_API_TOKEN` を使用します。API のアプリケーション設定には、リポジトリ secret の `AZURE_AI_FOUNDRY_API_KEY`（必須）と `ISSUE_GITHUB_TOKEN`（任意。空なら警告のみ）、`AZURE_AI_FOUNDRY_TRANSCRIBE_API_KEY`（任意。空なら警告のみで音声入力は無効）、`REALTIME_TICKET_SECRET`（任意。音声会話のチケットの署名鍵。空なら警告のみで音声会話は無効）を使用します。中継の App Service のアプリ設定は Bicep で定義し、Foundry のキー（`AZURE_AI_FOUNDRY_TRANSCRIBE_API_KEY` を再利用）と `REALTIME_TICKET_SECRET` は `@secure()` パラメーターで渡します。
+- Foundry や GitHub などの外部サービスは API からだけ呼び出し、キーやトークンをフロントエンドに置かないでください（例外は音声会話の Realtime API で、中継から呼び出し、キーは中継だけが持ちます）。API のエラーログには `src/api/src/lib/http.ts` の `logError` を使い、エラーレスポンスには外部サービスの応答本文を含めないでください。
 
 ## ドキュメントと計画
 

@@ -3,7 +3,8 @@
   "private": true,
   "workspaces": [
     "src/frontend",
-    "src/api"
+    "src/api",
+    "src/relay"
   ],
   "type": "module",
   "scripts": {
@@ -15,7 +16,8 @@
     "test": "vitest run",
     "stage:api": "node scripts/stage-api.mjs",
     "stage:batch": "node scripts/stage-api.mjs batch",
-    "check:secrets": "node scripts/check-secrets.mjs src/frontend/dist src/api/dist"
+    "check:secrets": "node scripts/check-secrets.mjs src/frontend/dist src/api/dist src/relay/dist",
+    "stage:relay": "node scripts/stage-api.mjs relay"
   },
   "devDependencies": {
     "oxfmt": "^0.78.0",

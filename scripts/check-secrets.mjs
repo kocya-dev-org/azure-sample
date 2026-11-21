@@ -18,6 +18,10 @@ const SECRET_ENV_NAMES = [
   'COSMOS_CONNECTION_STRING',
   'ISSUE_GITHUB_TOKEN',
   'AZURE_AI_FOUNDRY_API_KEY',
+  'FOUNDRY_TRANSCRIBE_API_KEY',
+  'AZURE_AI_FOUNDRY_TRANSCRIBE_API_KEY',
+  'FOUNDRY_REALTIME_API_KEY',
+  'REALTIME_TICKET_SECRET',
 ];
 const secretValues = SECRET_ENV_NAMES.map((name) => [name, process.env[name]]).filter(
   ([, value]) => value && value.length >= 8,

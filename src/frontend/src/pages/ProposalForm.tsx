@@ -8,6 +8,13 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { api, errorMessage, streamReview } from '../api/client';
 import { ErrorMessage, NoProductSelected, PageHeader } from '../components/common';
+import {
+  formatRecord,
+  useVoiceConversation,
+  VoiceConversationButton,
+  VoiceConversationPanel,
+  type ProposalRecord,
+} from '../components/VoiceConversation';
 import { VoiceInput } from '../components/VoiceInput';
 import { useProducts } from '../context/ProductContext';
 import { Link, useRouter } from '../router';
@@ -27,8 +34,9 @@ export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
   const [body, setBody] = useState('');
   const [comment, setComment] = useState('');
   const [error, setError] = useState('');
-  // 録音中・文字起こし中は判定させない
+  // 録音中・文字起こし中・音声会話中は判定させない
   const [voiceBusy, setVoiceBusy] = useState(false);
+  const [conversationBusy, setConversationBusy] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -53,6 +61,14 @@ export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
 
   // 画面を離れたら判定のストリームを止める
   useEffect(() => () => abortRef.current?.abort(), []);
+
+  const conversation = useVoiceConversation({
+    productId: productId ?? '',
+    getDraft: () => ({ title, body }),
+    onFinish: applyConversation,
+    onBusyChange: setConversationBusy,
+    onError: setError,
+  });
 
   const heading = proposalId ? '提案の編集' : '提案の新規登録';
   if (!productId) {
@@ -121,8 +137,19 @@ export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
     );
   }
 
+  /** 音声会話で記録した内容を反映する。タイトルは空のときだけ設定し、内容は末尾に追記する。 */
+  function applyConversation(record: ProposalRecord) {
+    const recordedTitle = record.title;
+    if (recordedTitle) {
+      setTitle((current) => (current.trim() ? current : recordedTitle.slice(0, 200)));
+    }
+    const text = formatRecord(record);
+    if (text) appendTranscript(text);
+  }
+
   const editable = phase === 'input';
-  const canReview = editable && !voiceBusy && title.trim() !== '' && body.trim() !== '';
+  const busy = voiceBusy || conversationBusy;
+  const canReview = editable && !busy && title.trim() !== '' && body.trim() !== '';
 
   return (
     <section className="mx-auto max-w-3xl">
@@ -160,13 +187,19 @@ export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
             <div className="grid gap-2">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <Label htmlFor="proposal-body">内容</Label>
-                <VoiceInput
-                  productId={productId}
-                  disabled={!editable}
-                  onText={appendTranscript}
-                  onBusyChange={setVoiceBusy}
-                  onError={setError}
-                />
+                <div className="flex flex-wrap gap-2">
+                  <VoiceConversationButton
+                    conversation={conversation}
+                    disabled={!editable || voiceBusy}
+                  />
+                  <VoiceInput
+                    productId={productId}
+                    disabled={!editable || conversationBusy}
+                    onText={appendTranscript}
+                    onBusyChange={setVoiceBusy}
+                    onError={setError}
+                  />
+                </div>
               </div>
               <Textarea
                 id="proposal-body"
@@ -180,6 +213,7 @@ export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
                 required
               />
             </div>
+            <VoiceConversationPanel conversation={conversation} />
             {(comment || phase === 'reviewing') && (
               <div className="grid gap-2">
                 <span className="flex items-center gap-2 text-sm font-medium">

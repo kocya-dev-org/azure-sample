@@ -127,7 +127,7 @@ export class ApiError extends Error {
 
 const GENERIC_ERROR = 'API の呼び出しに失敗しました。';
 
-async function toApiError(response: Response): Promise<ApiError> {
+export async function toApiError(response: Response): Promise<ApiError> {
   try {
     const body = (await response.json()) as { error?: unknown };
     if (typeof body.error === 'string') return new ApiError(body.error, response.status);
@@ -203,6 +203,21 @@ export async function transcribeAudio(productId: string, audio: Blob): Promise<s
   if (!response.ok) throw await toApiError(response);
   const { text } = (await response.json()) as { text?: unknown };
   return typeof text === 'string' ? text : '';
+}
+
+export interface VoiceSessionTicket {
+  relayUrl: string;
+  ticket: string;
+  expiresAt: string;
+  maxSeconds: number;
+}
+
+/** 音声会話（ADR 0013）の中継を使うためのチケットを受け取る。フォームの現在値を渡し、聞き直しを避ける。 */
+export function createVoiceSession(
+  productId: string,
+  draft: ProposalInput,
+): Promise<VoiceSessionTicket> {
+  return request<VoiceSessionTicket>('POST', `/products/${enc(productId)}/voice-sessions`, draft);
 }
 
 const STREAM_CUT_ERROR = '判定の応答が途中で切れました。もう一度お試しください。';
