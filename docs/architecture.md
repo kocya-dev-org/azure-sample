@@ -12,6 +12,7 @@
 | Blob Storage            | StorageV2 / Standard_LRS。コンテナー `objects` はプライベート。MVP では使っていない                                                                                                                                                                                                                     | Japan East                                                 |
 | Microsoft Foundry       | OpenAI 互換 API（既定モデル `gpt-5-mini`）。提案の判定（ストリーム）とスコアリング（構造化出力）に使う                                                                                                                                                                                                  | —                                                          |
 | 文字起こし用 Foundry    | リソース `voice-stt-foundary`（リソースグループ `sample-app-rc`、Bicep の管理対象外）。モデル `gpt-4o-transcribe` で、提案の音声入力を文字起こしする。API キーで認証し、音声は保存しない（[ADR 0011](../plan/decisions/0011-voice-input-transcription.md)）                                             | —                                                          |
+| 音声会話の中継          | App Service（Linux、F1）/ Node.js 24。ブラウザーとは HTTPS（POST と SSE）、文字起こし用 Foundry の `gpt-realtime-2.1-mini` とは WebSocket でつなぐ。WebRTC がブロックされ、マネージド Functions が WebSocket を扱えないため（[ADR 0013](../plan/decisions/0013-voice-conversation-relay.md)）           | Japan East                                                 |
 | GitHub MCP サーバー     | 判定時の実装状況の確認。Copilot Spaces ツールで Space `kocya-dev-org/spaces-azure-sample` の内容を取得する（任意。`ISSUE_GITHUB_TOKEN` が未設定なら確認しない。[ADR 0012](../plan/decisions/0012-implementation-check-copilot-spaces.md)）                                                              |
 | GitHub REST API         | バックログ項目の Issue 起票と Issue 状態の確認（任意。トークンが未設定なら無効）                                                                                                                                                                                                                        | —                                                          |
 | 日次バッチ Function App | Flex Consumption（FC1）/ Node.js 24。タイマー関数 `syncIssueStatus` だけを動かし、毎日 18:00 UTC に Issue の状態をバックログ項目へ反映する。ホスト用ストレージは Blob Storage のアカウントを共有する（コンテナー `batch-deployments`）（[ADR 0010](../plan/decisions/0010-issue-status-sync-batch.md)） | Japan East                                                 |
@@ -37,6 +38,8 @@
 | `FOUNDRY_TRANSCRIBE_API_KEY`  | —    | 同上。リポジトリ secret `AZURE_AI_FOUNDRY_TRANSCRIBE_API_KEY`。空なら警告を出して、次の 2 つも設定しない（音声入力は無効） |
 | `FOUNDRY_TRANSCRIBE_ENDPOINT` | —    | 同上（ワークフローに記載）                                                                                                 |
 | `FOUNDRY_TRANSCRIBE_MODEL`    | —    | 同上（`gpt-4o-transcribe`）                                                                                                |
+| `REALTIME_RELAY_URL`          | —    | 同上。Bicep の出力 `relayUrl`。`REALTIME_TICKET_SECRET` が空なら設定しない（音声会話は無効）                               |
+| `REALTIME_TICKET_SECRET`      | —    | 同上。リポジトリ secret `REALTIME_TICKET_SECRET`。空なら警告を出して設定しない                                             |
 
 日次バッチの Function App のアプリ設定は、すべて Bicep（`infra/main.bicep` の `siteConfig.appSettings`）で定義します。
 
@@ -44,14 +47,23 @@
 - `COSMOS_DATABASE_ID`
 - `ISSUE_GITHUB_TOKEN`: `@secure()` パラメーター `issueGithubToken`。ジョブ `deploy-infrastructure` がリポジトリ secret から渡し、空なら空のまま
 
+音声会話の中継（App Service）のアプリ設定も、すべて Bicep で定義します（[ADR 0013](../plan/decisions/0013-voice-conversation-relay.md)）。
+
+- `FOUNDRY_REALTIME_ENDPOINT`・`FOUNDRY_REALTIME_MODEL`・`REALTIME_AUDIO_FORMAT`（`pcm` か `pcmu`）・`REALTIME_TRANSCRIPTION_MODEL`（`off` で無効）: `dev.bicepparam` とパラメーターの既定値
+- `FOUNDRY_REALTIME_API_KEY`: `@secure()` パラメーター `foundryRealtimeApiKey`。リポジトリ secret `AZURE_AI_FOUNDRY_TRANSCRIBE_API_KEY`（文字起こしと同じリソースのキー）
+- `REALTIME_TICKET_SECRET`: `@secure()` パラメーター `realtimeTicketSecret`。SWA API と同じ値
+- `RELAY_ALLOWED_ORIGINS`: SWA の既定ホストと、PR プレビューのホストから組み立てる
+
+キーか署名鍵が空のままだと、中継は起動しません（起動時に設定を検査します）。
+
 CLI で設定を足すと、Bicep の再デプロイで消えます。トークンを更新したら、インフラのデプロイを再実行してください。
 
 値をソースに記載してはいけません。以前の `COSMOS_CONTAINER_ID`・`BLOB_CONNECTION_STRING`・`BLOB_CONTAINER_NAME` はワークフローで設定しなくなりました。既存の値は残っていても使われません。
 
 ## シークレットの扱い
 
-- Foundry（文字起こし用を含む）と GitHub は API（サーバー）からだけ呼び出します。フロントエンドにはキーやトークンを置かず、`VITE_*` 環境変数にも入れません。
-- CI の `verify` ジョブで、ビルド成果物（`src/frontend/dist/`・`src/api/dist/`）にシークレットらしき文字列がないことを `npm run check:secrets`（`scripts/check-secrets.mjs`）で検査します。
+- Foundry（文字起こし用を含む）と GitHub は API（サーバー）からだけ呼び出します。音声会話の Realtime API は中継（App Service）から呼び出し、キーは中継だけが持ちます。ブラウザーが中継に渡すのは、SWA API が署名した短命のチケットと、中継が発行したセッションキーだけです。フロントエンドにはキーやトークンを置かず、`VITE_*` 環境変数にも入れません。
+- CI の `verify` ジョブで、ビルド成果物（`src/frontend/dist/`・`src/api/dist/`・`src/relay/dist/`）にシークレットらしき文字列がないことを `npm run check:secrets`（`scripts/check-secrets.mjs`）で検査します。
 - API のログには、エラーの名前・コード・状態・メッセージだけを記録します（`src/api/src/lib/http.ts` の `logError`）。エラーレスポンスは固定の日本語メッセージで、外部サービスの応答本文やヘッダーを含めません。
 - プロンプトのユーザー入力は区切りタグで囲み、指示として扱わないようシステムプロンプトで指定しています（`src/api/src/lib/prompts.ts`）。
 
@@ -85,4 +97,8 @@ React + Vite の SPA です。UI は shadcn/ui（Tailwind CSS v4 + Radix）の�
 - 日次バッチは `npm run stage:batch` で `.deploy/batch` にステージングし、ジョブ `deploy-batch-functions` が `Azure/functions-action`（`sku: flexconsumption`）でデプロイします。
   - ステージングの手順は API と同じです。違いは、`package.json` の `main` を `dist/src/batch.js` に書き換えることだけです。
   - デプロイは main への push と手動実行のときだけ行い、PR ではデプロイしません。
+- 音声会話の中継は `npm run stage:relay` で `.deploy/relay` にステージングします（本番依存は `ws` だけ）。ジョブ `deploy-relay` が zip にし、`az webapp deploy` で App Service にデプロイします。
+  - App Service 側ではビルドしません（`SCM_DO_BUILD_DURING_DEPLOYMENT=false`）。
+  - デプロイは main への push と手動実行のときだけです。PR プレビューで音声会話を試すには、先にブランチから手動実行して、中継とインフラをデプロイします。
+- App Service F1 には制限（CPU 60 分/日、帯域 165 MB/日、アイドル時のアンロード）があるため、音声会話の回数には上限があります。初回の接続は、コールドスタートで時間がかかることがあります。
 - API 実行ランタイムは `apiRuntime` で指定します。マネージド Functions が `node:24` に対応していないため、API のみ `node:22` です（[ADR 0001](../plan/decisions/0001-node24-on-managed-functions.md)）。

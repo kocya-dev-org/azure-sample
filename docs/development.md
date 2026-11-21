@@ -73,11 +73,38 @@ func start
 - `FOUNDRY_ENDPOINT`（必須）
 - `FOUNDRY_MODEL`（任意。既定 `gpt-5-mini`）
 - `FOUNDRY_TRANSCRIBE_ENDPOINT`・`FOUNDRY_TRANSCRIBE_API_KEY`・`FOUNDRY_TRANSCRIBE_MODEL`（任意）: 音声入力の文字起こし用です。Foundry リソース `voice-stt-foundary` のエンドポイント（`https://voice-stt-foundary.openai.azure.com/`。`/openai/v1/` は付けない）、キー、デプロイ名（`gpt-4o-transcribe`）を設定します。未設定なら文字起こしの API が 502 を返し、それ以外は動きます（[ADR 0011](../plan/decisions/0011-voice-input-transcription.md)）。
+- `REALTIME_RELAY_URL`・`REALTIME_TICKET_SECRET`（任意）: 音声会話の中継の URL と、チケットの署名鍵（中継と同じ値）です。未設定なら、音声会話の API が 503 を返します（[ADR 0013](../plan/decisions/0013-voice-conversation-relay.md)）。
 - `ISSUE_GITHUB_TOKEN`（任意）: GitHub Issue 起票用の fine-grained personal access token です。対象リポジトリを限定し、権限は Issues: Read and write だけにします。未設定でも起票以外の機能は動きます。本番環境とプレビュー環境では、リポジトリ secret `ISSUE_GITHUB_TOKEN` に登録します（[ADR 0007](../plan/decisions/0007-github-issue-token.md)）。
 
 コンテナー名はコードの定数です（`src/api/src/lib/cosmos.ts`）。コンテナーがなければ、API が初回アクセス時に作成します。
 
 設定は、使うときに初めて検査します（`src/api/src/lib/settings.ts`）。たとえば Foundry の設定がなくても、プロダクトの登録や一覧は動きます。
+
+## 音声会話の中継
+
+音声会話の中継（`src/relay/`）は、App Service で動く Node.js の HTTP サーバーです（[ADR 0013](../plan/decisions/0013-voice-conversation-relay.md)）。ローカルでは次のように動かします。
+
+1. 中継を起動します（既定のポートは 8080）。値はこのドキュメントに書きません。
+
+   ```bash
+   FOUNDRY_REALTIME_ENDPOINT=https://voice-stt-foundary.openai.azure.com/ \
+   FOUNDRY_REALTIME_API_KEY=<キー> \
+   FOUNDRY_REALTIME_MODEL=gpt-realtime-2.1-mini \
+   REALTIME_TICKET_SECRET=<任意の乱数> \
+   npm -w src/relay run dev
+   ```
+
+   任意の設定は次のとおりです。
+   - `REALTIME_AUDIO_FORMAT`: `pcm` か `pcmu`（既定 `pcm`）
+   - `REALTIME_TRANSCRIPTION_MODEL`: 既定 `whisper-1`。`off` で無効
+   - `REALTIME_VOICE`: 既定 `marin`
+   - `RELAY_ALLOWED_ORIGINS`: 既定 `http://localhost:5173`
+   - `PORT`
+
+2. API の `local.settings.json` に、`REALTIME_RELAY_URL`（`http://localhost:8080`）と、中継と同じ `REALTIME_TICKET_SECRET` を設定します。
+3. Vite の dev server（`http://localhost:5173`）で提案フォームを開き、「音声会話」を押します。
+
+デプロイ用の成果物は、`npm run stage:relay` で `.deploy/relay` に作成します。
 
 ## 日次バッチ（Issue 状態の同期）
 

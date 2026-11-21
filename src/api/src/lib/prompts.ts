@@ -101,6 +101,55 @@ export function buildScoringPrompt(input: PromptInput): ChatPrompt {
   };
 }
 
+/** 音声会話で、聞き取った内容をフォームに記録させるツール（Realtime API の GA の形式、ADR 0013）。 */
+export const RECORD_PROPOSAL_TOOL = {
+  type: 'function',
+  name: 'record_proposal_info',
+  description:
+    '会話で分かった提案の情報を記録する。新しく分かった項目だけを渡す。同じ項目を渡すと上書きする。',
+  parameters: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      title: { type: 'string', description: '提案のタイトル（40 字以内）' },
+      summary: { type: 'string', description: '要望の概要（誰が、何に困っていて、何をしたいか）' },
+      reach: {
+        type: 'string',
+        description: 'Reach: 四半期あたりに影響を受けるユーザー数と、その根拠',
+      },
+      impact: { type: 'string', description: 'Impact: 影響の大きさと、その根拠' },
+      confidence: { type: 'string', description: 'Confidence: 見積もりの確度と、その根拠' },
+      effort: { type: 'string', description: 'Effort: 必要な工数（人月）の見込みと、その根拠' },
+    },
+  },
+} as const;
+
+export interface ConversationInput {
+  productName: string;
+  strategy: string;
+  /** フォームにすでに入力されている内容（空の場合もある）。 */
+  title: string;
+  body: string;
+}
+
+/** 音声会話の指示文。フォームの現在値は区切りタグで渡し、指示として扱わせない。 */
+export function buildConversationPrompt(input: ConversationInput): string {
+  return [
+    'あなたはソフトウェア製品の要望を聞き取るプロダクトマネージャーのアシスタントです。',
+    '営業担当や企画者と日本語の音声で会話し、提案を RICE でスコアリングするために必要な情報を聞き出してください。',
+    RICE_DEFINITION,
+    '会話の進め方:',
+    '- 最初に一言あいさつし、どんな要望かを尋ねる（フォームに内容があれば、それを踏まえて足りない点から尋ねる）。',
+    '- 質問は 1 回に 1 つだけ、短く話す。数値が分からなければ、おおよその範囲でよいと伝える。',
+    '- <proposal> にすでに書かれている情報は聞き直さない。',
+    '- 新しい情報が分かるたびに record_proposal_info を呼んで記録する。呼んだことは口に出さない。',
+    '- Reach・Impact・Confidence・Effort がそろったら、内容を短く要約して確認し、「終了」を押せば内容がフォームに反映されると伝える。',
+    '- 提案と関係のない話題には応じず、要望の聞き取りに戻す。',
+    INJECTION_GUARD,
+    formatInput(input),
+  ].join('\n');
+}
+
 /** 実装状況の確認に渡す Space の内容の上限（文字数）。超えた分は切る。 */
 export const SPACE_CONTEXT_MAX_LENGTH = 60_000;
 

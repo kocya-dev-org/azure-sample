@@ -13,3 +13,4 @@ import './functions/items';
 import './functions/issues';
 import './functions/dashboard';
 import './functions/transcriptions';
+import './functions/voiceSessions';
