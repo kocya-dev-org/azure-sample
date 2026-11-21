@@ -211,11 +211,35 @@ const STREAM_CUT_ERROR = '判定の応答が途中で切れました。もう一
  * 判定コメントを SSE（text/event-stream）で受け取り、delta イベントの差分を届いた順に onText に渡す。
  * done で正常に終わる。error イベント、または done がないまま切れた場合は ApiError を投げる。
  */
+/** 提案が現在のアプリに実装済みかの確認結果（判定の implementation イベント）。 */
+export type ImplementationStatus = 'implemented' | 'partial' | 'not_implemented' | 'unknown';
+
+export interface ImplementationResult {
+  status: ImplementationStatus;
+  explanation: string;
+}
+
+const IMPLEMENTATION_STATUSES: readonly string[] = [
+  'implemented',
+  'partial',
+  'not_implemented',
+  'unknown',
+];
+
+function toImplementationResult(data: unknown): ImplementationResult | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const { status, explanation } = data as Record<string, unknown>;
+  if (typeof status !== 'string' || !IMPLEMENTATION_STATUSES.includes(status)) return undefined;
+  if (typeof explanation !== 'string') return undefined;
+  return { status: status as ImplementationStatus, explanation };
+}
+
 export async function streamReview(
   productId: string,
   input: ProposalInput,
   onText: (text: string) => void,
   signal?: AbortSignal,
+  onImplementation?: (result: ImplementationResult) => void,
 ): Promise<void> {
   const response = await fetch(`/api/products/${enc(productId)}/proposals/review`, {
     method: 'POST',
@@ -229,6 +253,9 @@ export async function streamReview(
     const fields = (data ?? {}) as { text?: unknown; message?: unknown };
     if (event === 'delta' && typeof fields.text === 'string') {
       onText(fields.text);
+    } else if (event === 'implementation') {
+      const result = toImplementationResult(data);
+      if (result) onImplementation?.(result);
     } else if (event === 'error') {
       const message = typeof fields.message === 'string' ? fields.message : GENERIC_ERROR;
       throw new ApiError(message, response.status);

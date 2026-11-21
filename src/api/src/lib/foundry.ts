@@ -47,20 +47,24 @@ export async function* streamText(prompt: ChatPrompt): AsyncGenerator<string> {
 /** JSON Schema に従った構造化出力を返す。 */
 export async function generateJson(
   prompt: ChatPrompt & { schemaName: string; schema: Record<string, unknown> },
+  signal?: AbortSignal,
 ): Promise<unknown> {
-  const response = await getClient().chat.completions.create({
-    model: getModel(),
-    messages: [
-      { role: 'system', content: prompt.system },
-      { role: 'user', content: prompt.user },
-    ],
-    reasoning_effort: 'low',
-    max_completion_tokens: prompt.maxCompletionTokens,
-    response_format: {
-      type: 'json_schema',
-      json_schema: { name: prompt.schemaName, schema: prompt.schema, strict: true },
+  const response = await getClient().chat.completions.create(
+    {
+      model: getModel(),
+      messages: [
+        { role: 'system', content: prompt.system },
+        { role: 'user', content: prompt.user },
+      ],
+      reasoning_effort: 'low',
+      max_completion_tokens: prompt.maxCompletionTokens,
+      response_format: {
+        type: 'json_schema',
+        json_schema: { name: prompt.schemaName, schema: prompt.schema, strict: true },
+      },
     },
-  });
+    { signal },
+  );
   const text = response.choices[0]?.message.content;
   if (!text) throw new Error('Foundry returned an empty response.');
   return JSON.parse(text) as unknown;

@@ -42,6 +42,7 @@
   - 文字起こしの設定（`FOUNDRY_TRANSCRIBE_*`）が未設定の場合も 502 です。
 - 判定のコメントは、Server-Sent Events（`text/event-stream`）で返します。最初の差分が届く前の失敗（400・404・502）は、ほかの API と同じく JSON のエラーで返します。
   - `event: delta` / `data: {"text": "…"}`: コメントの差分です。届いた順につなげて表示します。
+  - `event: implementation` / `data: {"status": "…", "explanation": "…"}`: 提案が現在のアプリに実装済みかの確認結果です。コメントの差分をすべて送った後、`done` の直前に 1 回だけ送ります（[ADR 0012](../plan/decisions/0012-implementation-check-copilot-spaces.md)）。`status` は `implemented`（実装済み）・`partial`（一部実装済み）・`not_implemented`（未実装）・`unknown`（確認できなかった）のいずれか、`explanation` は利用者向けの説明です。確認はコメントの生成と並行して行い、GitHub MCP サーバーの Copilot Spaces ツールで取得した Space の内容を根拠にします。確認に失敗しても判定は失敗にせず、`unknown` を返します。
   - `event: done` / `data: {}`: 正常に終わったことを示します。
   - `event: error` / `data: {"message": "…"}`: 途中で失敗したことを示します。状態コードは変えられないため、イベントで知らせて終えます。
   - `data` はいつも 1 行の JSON です。`done` も `error` もないまま本文が終わった場合は、クライアントは途中で切れたものとして扱います。

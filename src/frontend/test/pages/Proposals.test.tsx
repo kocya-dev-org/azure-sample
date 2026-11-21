@@ -228,6 +228,33 @@ describe('提案フォーム', () => {
     expect(created).toHaveBeenCalledWith({ title: 'CSV 出力', body: '帳票を CSV で出したい' });
   });
 
+  it('コメントの後に、実装状況と利用者向けの説明を表示する', async () => {
+    await reviewWith(() =>
+      eventStream([
+        { event: 'delta', data: { text: 'コメント' } },
+        {
+          event: 'implementation',
+          data: {
+            status: 'implemented',
+            explanation: '提案フォームの「内容」の右上にある「音声で入力」ボタンで使えます。',
+          },
+        },
+        { event: 'done', data: {} },
+      ]),
+    );
+
+    const block = await screen.findByTestId('implementation');
+    await waitFor(() => expect(block).toHaveTextContent('実装済み'));
+    expect(block).toHaveTextContent('「音声で入力」ボタンで使えます。');
+  });
+
+  it('実装状況が届かなければ、実装状況の欄は表示しない', async () => {
+    await reviewWith(() => deltaStream(['コメント']));
+
+    expect(await screen.findByRole('button', { name: 'このまま送信' })).toBeInTheDocument();
+    expect(screen.queryByTestId('implementation')).not.toBeInTheDocument();
+  });
+
   it('追記して再判定すると内容を編集できるようになる', async () => {
     const review = vi.fn<(body: unknown) => Response>(() => deltaStream(['コメント']));
     mockFetch({

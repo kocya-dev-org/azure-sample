@@ -1,12 +1,26 @@
-import { ArrowLeftIcon, Loader2Icon, PencilLineIcon, SendIcon, SparklesIcon } from 'lucide-react';
+import {
+  ArrowLeftIcon,
+  Loader2Icon,
+  PackageSearchIcon,
+  PencilLineIcon,
+  SendIcon,
+  SparklesIcon,
+} from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { api, errorMessage, streamReview } from '../api/client';
+import {
+  api,
+  errorMessage,
+  streamReview,
+  type ImplementationResult,
+  type ImplementationStatus,
+} from '../api/client';
 import { ErrorMessage, NoProductSelected, PageHeader } from '../components/common';
 import { VoiceInput } from '../components/VoiceInput';
 import { useProducts } from '../context/ProductContext';
@@ -18,6 +32,16 @@ type Phase = 'loading' | 'input' | 'reviewing' | 'reviewed' | 'submitting';
 /** 内容の上限（API の検証と同じ）。 */
 const BODY_MAX_LENGTH = 8000;
 
+const IMPLEMENTATION_LABELS: Record<
+  ImplementationStatus,
+  { label: string; variant: 'default' | 'secondary' | 'outline' }
+> = {
+  implemented: { label: '実装済み', variant: 'default' },
+  partial: { label: '一部実装済み', variant: 'secondary' },
+  not_implemented: { label: '未実装', variant: 'outline' },
+  unknown: { label: '確認できませんでした', variant: 'outline' },
+};
+
 export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
   const { selectedProduct } = useProducts();
   const { navigate } = useRouter();
@@ -26,6 +50,7 @@ export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [comment, setComment] = useState('');
+  const [implementation, setImplementation] = useState<ImplementationResult | null>(null);
   const [error, setError] = useState('');
   // 録音中・文字起こし中は判定させない
   const [voiceBusy, setVoiceBusy] = useState(false);
@@ -72,6 +97,7 @@ export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
     abortRef.current = controller;
     setPhase('reviewing');
     setComment('');
+    setImplementation(null);
     setError('');
     try {
       await streamReview(
@@ -79,6 +105,7 @@ export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
         { title, body },
         (text) => setComment((current) => current + text),
         controller.signal,
+        setImplementation,
       );
       setPhase('reviewed');
     } catch (e) {
@@ -195,6 +222,33 @@ export function ProposalFormPage({ proposalId }: { proposalId?: string }) {
                     <span className="flex items-center gap-2 text-muted-foreground">
                       <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
                       判定中…
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+            {(implementation || (comment && phase === 'reviewing')) && (
+              <div className="grid gap-2">
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  <PackageSearchIcon className="size-4 text-primary" aria-hidden="true" />
+                  実装状況
+                </span>
+                <div
+                  className="rounded-lg border p-4 text-sm leading-relaxed"
+                  aria-live="polite"
+                  data-testid="implementation"
+                >
+                  {implementation ? (
+                    <div className="flex flex-col gap-2">
+                      <Badge variant={IMPLEMENTATION_LABELS[implementation.status].variant}>
+                        {IMPLEMENTATION_LABELS[implementation.status].label}
+                      </Badge>
+                      <p className="whitespace-pre-wrap">{implementation.explanation}</p>
+                    </div>
+                  ) : (
+                    <span className="flex items-center gap-2 text-muted-foreground">
+                      <Loader2Icon className="size-4 animate-spin" aria-hidden="true" />
+                      いまのアプリに実装済みかを確認中…
                     </span>
                   )}
                 </div>
