@@ -1,6 +1,7 @@
 infra/main.json
 infra/environments/*.json
 src/api/dist/
+src/relay/dist/
 node_modules/
 src/frontend/dist/
 coverage/

@@ -17,6 +17,7 @@ on:
           - all
           - infra
           - app
+          - relay
 
 jobs:
   changes:
@@ -25,6 +26,7 @@ jobs:
       infra: ${{ steps.filter.outputs.infra }}
       backend: ${{ steps.filter.outputs.backend }}
       frontend: ${{ steps.filter.outputs.frontend }}
+      relay: ${{ steps.filter.outputs.relay }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -50,6 +52,9 @@ jobs:
               - *tooling
             frontend:
               - 'src/frontend/**'
+              - *tooling
+            relay:
+              - 'src/relay/**'
               - *tooling
 
   verify:
@@ -111,6 +116,8 @@ jobs:
         env:
           RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
           ISSUE_GITHUB_TOKEN: ${{ secrets.ISSUE_GITHUB_TOKEN }}
+          FOUNDRY_REALTIME_API_KEY: ${{ secrets.AZURE_AI_FOUNDRY_TRANSCRIBE_API_KEY }}
+          REALTIME_TICKET_SECRET: ${{ secrets.REALTIME_TICKET_SECRET }}
         shell: bash
         run: |
           set -euo pipefail
@@ -119,6 +126,16 @@ jobs:
           extra_parameters=()
           if [[ -n "$ISSUE_GITHUB_TOKEN" ]]; then
             extra_parameters+=(--parameters "issueGithubToken=$ISSUE_GITHUB_TOKEN")
+          fi
+          # 音声会話の中継（ADR 0013）のアプリ設定も Bicep で定義する。
+          # Foundry のキーは文字起こしと同じリソースのキーを使う。どちらも任意で、未設定なら中継は起動しない
+          if [[ -n "$FOUNDRY_REALTIME_API_KEY" && -n "$REALTIME_TICKET_SECRET" ]]; then
+            extra_parameters+=(
+              --parameters "foundryRealtimeApiKey=$FOUNDRY_REALTIME_API_KEY"
+              --parameters "realtimeTicketSecret=$REALTIME_TICKET_SECRET"
+            )
+          else
+            echo "::warning::AZURE_AI_FOUNDRY_TRANSCRIBE_API_KEY or REALTIME_TICKET_SECRET is not configured. Voice conversation stays disabled."
           fi
           deployment=$(az deployment group create \
             --resource-group "$RESOURCE_GROUP" \
@@ -233,6 +250,35 @@ jobs:
               'FOUNDRY_TRANSCRIBE_ENDPOINT=https://voice-stt-foundary.openai.azure.com/' \
               'FOUNDRY_TRANSCRIBE_MODEL=gpt-4o-transcribe' \
             --output none
+      - name: Set voice conversation settings
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          REALTIME_TICKET_SECRET: ${{ secrets.REALTIME_TICKET_SECRET }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # 署名鍵は任意。未設定でも音声会話以外は動くため、失敗にしない（ADR 0013）
+          if [[ -z "$REALTIME_TICKET_SECRET" ]]; then
+            echo "::warning::Repository secret REALTIME_TICKET_SECRET is not configured. Voice conversation stays disabled."
+            exit 0
+          fi
+          outputs=$(az deployment group show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name flyingfish-dev \
+            --query properties.outputs \
+            --output json)
+          static_web_app_name=$(jq -er '.staticWebAppName.value' <<< "$outputs")
+          relay_url=$(jq -r '.relayUrl.value // empty' <<< "$outputs")
+          if [[ -z "$relay_url" ]]; then
+            echo "::warning::relayUrl output is missing. Deploy the infrastructure first. Voice conversation stays disabled."
+            exit 0
+          fi
+          az staticwebapp appsettings set \
+            --name "$static_web_app_name" \
+            --setting-names \
+              "REALTIME_RELAY_URL=$relay_url" \
+              "REALTIME_TICKET_SECRET=$REALTIME_TICKET_SECRET" \
+            --output none
 
   deploy-static-web-app:
     needs: [changes, verify, validate-infra, deploy-infrastructure, configure-foundry-settings]
@@ -335,6 +381,65 @@ jobs:
           app-name: ${{ steps.batch.outputs.name }}
           package: .deploy/batch
           sku: flexconsumption
+
+  deploy-relay:
+    needs: [changes, verify, validate-infra, deploy-infrastructure]
+    if: >-
+      always() && !cancelled() &&
+      needs.changes.result == 'success' &&
+      needs.verify.result == 'success' &&
+      needs.validate-infra.result != 'failure' &&
+      needs.validate-infra.result != 'cancelled' &&
+      (needs.deploy-infrastructure.result == 'success' || needs.deploy-infrastructure.result == 'skipped') &&
+      ((github.event_name == 'workflow_dispatch' && (inputs.target == 'all' || inputs.target == 'app' || inputs.target == 'relay')) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' &&
+      (needs.changes.outputs.relay == 'true' || needs.changes.outputs.infra == 'true')))
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - name: Build the relay with Node.js 24
+        run: |
+          npm ci
+          npm run build --workspace src/relay
+      - name: Stage the relay with production dependencies only
+        shell: bash
+        run: |
+          npm run stage:relay
+          (cd .deploy/relay && zip -qr ../relay.zip .)
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy the relay to App Service (F1)
+        env:
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          name=$(az deployment group show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name flyingfish-dev \
+            --query properties.outputs.relayAppName.value \
+            --output tsv)
+          if [[ -z "$name" ]]; then
+            echo "relayAppName output is missing. Deploy the infrastructure first."
+            exit 1
+          fi
+          # ビルド済みの成果物を置くだけにする（SCM_DO_BUILD_DURING_DEPLOYMENT=false）
+          az webapp deploy \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$name" \
+            --src-path .deploy/relay.zip \
+            --type zip \
+            --output none
 
   close-static-web-app-preview:
     if: >-

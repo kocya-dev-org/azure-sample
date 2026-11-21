@@ -18,6 +18,25 @@ param batchNodeVersion string = '24'
 @secure()
 @description('日次バッチが GitHub Issue の状態を読むためのトークン。空なら同期をスキップする（ADR 0007、0010）。')
 param issueGithubToken string = ''
+@description('音声会話の中継（ADR 0013）用の Web App の名前。')
+param relayAppName string = 'app-flyingfish-relay-${uniqueString(resourceGroup().id)}'
+@description('中継の Node.js ランタイム（App Service の Linux の linuxFxVersion の値）。')
+param relayNodeVersion string = 'NODE|24-lts'
+@description('中継が接続する Foundry リソースのエンドポイント。')
+param foundryRealtimeEndpoint string = 'https://voice-stt-foundary.openai.azure.com/'
+@description('Realtime モデルのデプロイ名。')
+param foundryRealtimeModel string = 'gpt-realtime-2.1-mini'
+@allowed(['pcm', 'pcmu'])
+@description('音声会話の音声形式。pcm は PCM16・24 kHz、pcmu は G.711 μ-law・8 kHz（帯域が約 1/6）。')
+param realtimeAudioFormat string = 'pcm'
+@description('利用者の発話の文字起こしに使うモデル。off なら文字起こししない。')
+param realtimeTranscriptionModel string = 'whisper-1'
+@secure()
+@description('中継が Foundry を呼ぶ API キー。空なら中継は起動しない（音声会話は使えない）。')
+param foundryRealtimeApiKey string = ''
+@secure()
+@description('SWA API が発行するチケットの署名鍵。SWA API の REALTIME_TICKET_SECRET と同じ値にする。')
+param realtimeTicketSecret string = ''
 
 var databaseName = 'flyingfish'
 @description('Cosmos DB のコンテナー定義。パーティションキーと TTL（-1 は無期限、null は無効）。')
@@ -170,8 +189,59 @@ resource batchFunctionApp 'Microsoft.Web/sites@2024-04-01' = {
   dependsOn: [batchDeploymentContainer]
 }
 
+// --- 音声会話の中継（App Service F1、ADR 0013） ---
+// WebRTC がブロックされ、マネージド Functions が WebSocket を扱えないため、
+// ブラウザーとは HTTPS（POST と SSE）、Foundry とは WebSocket でつなぐ中継を置く。
+// F1 は CPU 60 分/日・帯域 165 MB/日・1 インスタンスの制限がある。
+var swaHostName = staticWebApp.properties.defaultHostname
+var swaHostLabel = split(swaHostName, '.')[0]
+var swaHostSuffix = substring(swaHostName, length(swaHostLabel))
+// SWA の既定ホスト（例: orange-field-0a2258e00.5.azurestaticapps.net）と、
+// PR プレビューのホスト（例: orange-field-0a2258e00-24.eastasia.5.azurestaticapps.net。番号のあとにリージョンが入る）を許可する
+var relayAllowedOrigins = 'https://${swaHostName},https://${swaHostLabel}-*.*${swaHostSuffix}'
+
+resource relayPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
+  name: 'plan-${relayAppName}'
+  location: location
+  kind: 'linux'
+  sku: { name: 'F1', tier: 'Free' }
+  properties: { reserved: true }
+  tags: tags
+}
+
+resource relayApp 'Microsoft.Web/sites@2024-04-01' = {
+  name: relayAppName
+  location: location
+  kind: 'app,linux'
+  tags: tags
+  properties: {
+    serverFarmId: relayPlan.id
+    httpsOnly: true
+    siteConfig: {
+      linuxFxVersion: relayNodeVersion
+      appCommandLine: 'node dist/src/server.js'
+      alwaysOn: false
+      minTlsVersion: '1.2'
+      ftpsState: 'Disabled'
+      // アプリ設定はすべてここで定義する（CLI で追加した設定は再デプロイで消えるため）
+      appSettings: [
+        { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'false' }
+        { name: 'FOUNDRY_REALTIME_ENDPOINT', value: foundryRealtimeEndpoint }
+        { name: 'FOUNDRY_REALTIME_MODEL', value: foundryRealtimeModel }
+        { name: 'FOUNDRY_REALTIME_API_KEY', value: foundryRealtimeApiKey }
+        { name: 'REALTIME_TICKET_SECRET', value: realtimeTicketSecret }
+        { name: 'REALTIME_AUDIO_FORMAT', value: realtimeAudioFormat }
+        { name: 'REALTIME_TRANSCRIPTION_MODEL', value: realtimeTranscriptionModel }
+        { name: 'RELAY_ALLOWED_ORIGINS', value: relayAllowedOrigins }
+      ]
+    }
+  }
+}
+
 output staticWebAppName string = staticWebApp.name
 output staticWebAppUrl string = 'https://${staticWebApp.properties.defaultHostname}'
 output cosmosAccountName string = cosmosAccount.name
 output dataStorageAccountName string = dataStorage.name
 output batchFunctionAppName string = batchFunctionApp.name
+output relayAppName string = relayApp.name
+output relayUrl string = 'https://${relayApp.properties.defaultHostName}'
