@@ -18,6 +18,8 @@ param batchNodeVersion string = '24'
 @secure()
 @description('日次バッチが GitHub Issue の状態を読むためのトークン。空なら同期をスキップする（ADR 0007、0010）。')
 param issueGithubToken string = ''
+@description('音声会話の中継（ADR 0013）の配置先リージョン。データを保存しないため、ほかのリソースと分けてよい。')
+param relayLocation string = 'japanwest'
 @description('音声会話の中継（ADR 0013）用の Web App の名前。')
 param relayAppName string = 'app-flyingfish-relay-${uniqueString(resourceGroup().id)}'
 @description('中継の Node.js ランタイム（App Service の Linux の linuxFxVersion の値）。')
@@ -193,6 +195,8 @@ resource batchFunctionApp 'Microsoft.Web/sites@2024-04-01' = {
 // WebRTC がブロックされ、マネージド Functions が WebSocket を扱えないため、
 // ブラウザーとは HTTPS（POST と SSE）、Foundry とは WebSocket でつなぐ中継を置く。
 // F1 は CPU 60 分/日・帯域 165 MB/日・1 インスタンスの制限がある。
+// Japan East は、このリソースグループの webspace（日次バッチの Flex Consumption と同じ）で F1 を作れないため、
+// Japan West に置く（SubscriptionIsOverQuotaForSku。ADR 0013 の追記）。
 var swaHostName = staticWebApp.properties.defaultHostname
 var swaHostLabel = split(swaHostName, '.')[0]
 var swaHostSuffix = substring(swaHostName, length(swaHostLabel))
@@ -202,7 +206,7 @@ var relayAllowedOrigins = 'https://${swaHostName},https://${swaHostLabel}-*.*${s
 
 resource relayPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: 'plan-${relayAppName}'
-  location: location
+  location: relayLocation
   kind: 'linux'
   sku: { name: 'F1', tier: 'Free' }
   properties: { reserved: true }
@@ -211,7 +215,7 @@ resource relayPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
 
 resource relayApp 'Microsoft.Web/sites@2024-04-01' = {
   name: relayAppName
-  location: location
+  location: relayLocation
   kind: 'app,linux'
   tags: tags
   properties: {

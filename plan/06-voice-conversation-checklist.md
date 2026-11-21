@@ -108,7 +108,7 @@
 
 ## Step 1: インフラ
 
-- [x] App Service プラン（Linux、F1、Japan East）と Web App を追加する
+- [x] App Service プラン（Linux、F1、Japan West。当初の Japan East は F1 を作れなかった）と Web App を追加する
   - 対象ファイル: `infra/main.bicep`, `infra/environments/dev.bicepparam`
   - 完了条件
     - 作成する内容
