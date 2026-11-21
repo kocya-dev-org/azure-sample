@@ -27,7 +27,7 @@
 
 ## 決定
 
-1. **App Service F1（Linux、Japan East）に中継を置く。** これは新しいデプロイ単位で、ADR 0011 の「既存のサービス構成は変えない」からの意図的な変更である。
+1. **App Service F1（Linux、Japan West）に中継を置く。**（当初は Japan East。末尾の追記を参照） これは新しいデプロイ単位で、ADR 0011 の「既存のサービス構成は変えない」からの意図的な変更である。
    - Bicep で App Service プランと Web App を作る。
    - アプリ設定は、日次バッチ（ADR 0010）と同じく Bicep の `appSettings` に定義する。
 2. **中継は依存を追加しない。** HTTP サーバーには `node:http` を、Foundry への接続には Node.js 組み込みの `WebSocket` を使う。コードは新しい workspace の `src/relay/` に置く。（Foundry への接続は、疎通確認の結果 `ws` パッケージに変えた。末尾の追記を参照）
@@ -112,3 +112,13 @@ App Service F1 の制限（Azure のサービス制限のページ。2026-09 更
   - キーは `api-key` ヘッダーで渡す。
   - `ws` は依存のない広く使われた実装で、`src/relay` の本番依存はこれ 1 つだけにする。
   - HTTP サーバーは引き続き `node:http` を使う。
+
+## 追記（2026-11-22）: 中継を Japan West に置く
+
+- `main` へのマージ後のインフラのデプロイで、中継の App Service プラン（F1、Japan East）の事前検証が `SubscriptionIsOverQuotaForSku`（F1 のインスタンスの上限 0）で失敗した。
+  - サブスクリプションに F1 のプランは 1 つもなかった。また、同じ F1 をポータルからは作成できた。
+  - 原因は確定していない。有力なのは、同じリソースグループ・同じリージョンのプランが同じ webspace に置かれ、`sample-app-rc` の Japan East の webspace（日次バッチの Flex Consumption のプランがある）では F1 を作れない、という説明。
+- そこで、中継のプランと Web App だけを Japan West に置く（パラメーター `relayLocation`）。ほかのリソースは Japan East のまま。
+  - 中継はデータを保存せず、Cosmos DB や Storage にもつながないので、リージョンを分けても影響はない。
+  - Foundry リソース `voice-stt-foundary` は West US 3 にある。ブラウザーは 200 ms ごとに音声を 1 つずつ POST するため、往復の短い利用者の近く（日本）に中継を置く。中継と Foundry の間は WebSocket 1 本なので、距離の影響は小さい。
+- Japan West でも同じエラーになった場合は、クォータの引き上げを申請するか、中継を別のリソースグループに置く。
