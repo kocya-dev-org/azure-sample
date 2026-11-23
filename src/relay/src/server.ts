@@ -1,24 +1,25 @@
-// 音声会話の中継のエントリーポイント（App Service F1、ADR 0013）。
+// 音声会話の中継のエントリーポイント（App Service F1、ADR 0013・0014）。
 // 設定は起動時に検査する。足りなければ起動を失敗させ、App Service のログに残す。
 import { createServer } from 'node:http';
 import { createRelayHandler } from './app';
-import { connectRealtime, realtimeUrl } from './lib/realtime';
+import { connectLive, liveUrl } from './lib/live';
 import { SessionManager } from './lib/session';
 import { loadConfig } from './lib/settings';
 
 const SWEEP_INTERVAL_MS = 5_000;
 const READY_TIMEOUT_MS = 10_000;
+const CLOSE_TIMEOUT_MS = 2_000;
 
 const config = loadConfig();
-const url = realtimeUrl(config.endpoint, config.model);
+const url = liveUrl(config.endpoint);
 const manager = new SessionManager({
   maxSessions: config.maxSessions,
   idleSeconds: config.idleSeconds,
-  audioFormat: config.audioFormat,
-  transcriptionModel: config.transcriptionModel,
+  model: config.model,
   voice: config.voice,
   readyTimeoutMs: READY_TIMEOUT_MS,
-  connect: () => connectRealtime(url, config.apiKey),
+  closeTimeoutMs: CLOSE_TIMEOUT_MS,
+  connect: () => connectLive(url, config.apiKey),
 });
 
 const server = createServer(createRelayHandler(config, manager));

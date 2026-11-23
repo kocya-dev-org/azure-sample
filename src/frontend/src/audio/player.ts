@@ -1,5 +1,6 @@
-// 音声会話の AI の音声の再生（ADR 0013）。届いた差分を順につなげて再生する。
-// 利用者が話し始めたら stop で止める（割り込み）。
+// 音声会話の AI の音声の再生（ADR 0013・0014）。届いた差分を順につなげて再生する。
+// GPT-Live（全二重）は話を止める合図を送らないため、stop は会話の終了時だけに使う。
+// 出力音声が実時間より速くまとめて届く場合は、start_ms に合わせて予約する方式に変える（ADR 0014 の検証待ち）。
 import { base64ToBytes, decodeSamples, sampleRateOf, type AudioFormat } from './pcm';
 
 export class AudioPlayer {

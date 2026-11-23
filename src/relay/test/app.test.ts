@@ -6,7 +6,10 @@ import { SessionManager } from '../src/lib/session';
 import { loadConfig } from '../src/lib/settings';
 import { FakeSocket, makePayload, ReadySocket, SECRET, signTicket } from './helpers';
 
-vi.mock('../src/lib/log', () => ({ logError: vi.fn<(...args: unknown[]) => void>() }));
+vi.mock('../src/lib/log', () => ({
+  logError: vi.fn<(...args: unknown[]) => void>(),
+  logInfo: vi.fn<(...args: unknown[]) => void>(),
+}));
 
 const ORIGIN = 'https://orange-field-0a2258e00.5.azurestaticapps.net';
 const NOW = 1_900_000_000_000;
@@ -23,17 +26,17 @@ beforeEach(async () => {
   const config = loadConfig({
     FOUNDRY_REALTIME_ENDPOINT: 'https://voice.openai.azure.com/',
     FOUNDRY_REALTIME_API_KEY: 'key',
-    FOUNDRY_REALTIME_MODEL: 'gpt-realtime-2.1-mini',
+    FOUNDRY_LIVE_MODEL: 'gpt-live-1',
     REALTIME_TICKET_SECRET: SECRET,
     RELAY_ALLOWED_ORIGINS: `${ORIGIN},https://orange-field-0a2258e00-*.*.5.azurestaticapps.net`,
   });
   manager = new SessionManager({
     maxSessions: 1,
     idleSeconds: 30,
-    audioFormat: config.audioFormat,
-    transcriptionModel: config.transcriptionModel,
+    model: config.model,
     voice: config.voice,
     readyTimeoutMs: 1000,
+    closeTimeoutMs: 1000,
     connect: () => {
       const socket = makeSocket();
       sockets.push(socket);
@@ -92,11 +95,11 @@ describe('中継の HTTP ハンドラー', () => {
     expect((await openSession('n2')).response.status).toBe(429);
   });
 
-  it('Foundry が設定を拒否したら 502 を返し、応答内容を含めない', async () => {
+  it('GPT-Live が開始を拒否したら 502 を返し、応答内容を含めない', async () => {
     makeSocket = () => {
       const socket = new FakeSocket();
       queueMicrotask(() => {
-        socket.receive({ type: 'session.created' });
+        socket.open();
         socket.receive({ type: 'error', error: { message: 'secret detail' } });
       });
       return socket;
@@ -125,7 +128,7 @@ describe('中継の HTTP ハンドラー', () => {
     const octet = { 'content-type': 'application/octet-stream' };
 
     expect((await post(path, new Uint8Array([1, 2]), { ...auth, ...octet })).status).toBe(204);
-    expect(sockets[0].sent.at(-1)).toEqual({ type: 'input_audio_buffer.append', audio: 'AQI=' });
+    expect(sockets[0].sent.at(-1)).toEqual({ type: 'session.input_audio.append', audio: 'AQI=' });
 
     expect(
       (await post(path, new Uint8Array([1]), { ...octet, authorization: 'Bearer x' })).status,
@@ -158,8 +161,7 @@ describe('中継の HTTP ハンドラー', () => {
     let text = decoder.decode((await reader.read()).value);
     expect(text).toBe(': ok\n\n');
 
-    await vi.waitFor(() => expect(sockets[0].sentTypes()).toContain('response.create'));
-    sockets[0].receive({ type: 'response.output_audio.delta', delta: 'AAAA' });
+    sockets[0].receive({ type: 'session.output_audio.delta', delta: 'AAAA' });
     const deleted = await fetch(`${baseUrl}/sessions/${body.sessionId}`, {
       method: 'DELETE',
       headers: { origin: ORIGIN, authorization: `Bearer ${body.sessionKey}` },
@@ -172,6 +174,7 @@ describe('中継の HTTP ハンドラー', () => {
     }
     expect(text).toContain('event: audio\ndata: {"delta":"AAAA"}\n\n');
     expect(text).toContain('event: closed\ndata: {"reason":"client"}\n\n');
+    expect(sockets[0].sentTypes()).toContain('session.close');
     expect(manager.size).toBe(0);
   });
 });

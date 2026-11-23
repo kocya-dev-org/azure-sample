@@ -220,6 +220,17 @@ export function createVoiceSession(
   return request<VoiceSessionTicket>('POST', `/products/${enc(productId)}/voice-sessions`, draft);
 }
 
+/** 音声会話の文字起こしから、提案の記録（タイトルと RICE の項目）を取り出す（ADR 0014）。 */
+export async function extractVoiceRecord(
+  productId: string,
+  input: ProposalInput & { transcript: { role: 'user' | 'assistant'; text: string }[] },
+): Promise<Record<'title' | 'summary' | 'reach' | 'impact' | 'confidence' | 'effort', string>> {
+  const { record } = await request<{
+    record: Record<'title' | 'summary' | 'reach' | 'impact' | 'confidence' | 'effort', string>;
+  }>('POST', `/products/${enc(productId)}/voice-sessions/extract`, input);
+  return record;
+}
+
 const STREAM_CUT_ERROR = '判定の応答が途中で切れました。もう一度お試しください。';
 
 /**

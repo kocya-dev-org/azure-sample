@@ -1,28 +1,63 @@
-// 音声会話のセッション（ADR 0013）。ブラウザーとは HTTP（POST と SSE）、Foundry とは WebSocket でつなぐ。
-// 音声は転送するだけで保存しない。ブラウザーから受け付けるのは音声だけで、session.update は中継だけが送る。
+// 音声会話のセッション（ADR 0013・0014）。ブラウザーとは HTTP（POST と SSE）、Foundry の GPT-Live とは WebSocket でつなぐ。
+// 音声は転送するだけで保存しない。ブラウザーから受け付けるのは音声だけで、session.start は中継だけが送る。
 import { randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
-import { logError } from './log';
-import { buildSessionUpdate, type AudioFormat, type UpstreamSocket } from './realtime';
+import { buildSessionStart, type UpstreamSocket } from './live';
+import { logError, logInfo } from './log';
 import type { TicketPayload } from './ticket';
 
 /** ブラウザーへ送るイベント。種類は docs/api.md と src/frontend/src/api/relay.ts と一致させる。 */
 export interface RelayEvent {
-  event: 'audio' | 'transcript' | 'speech_started' | 'tool_call' | 'closed';
+  event: 'audio' | 'transcript' | 'closed';
   data: unknown;
 }
 
 export type CloseReason = 'client' | 'time_limit' | 'idle' | 'upstream_closed' | 'disconnected';
 
-/** SSE を開く前に届いたイベントの上限。最初の応答は SSE を開いてから作るので、通常はほとんどたまらない。 */
-const MAX_BACKLOG = 100;
+/** SSE を開く前に届いたイベントの上限。 */
+const MAX_BACKLOG = 200;
 
-const FUNCTION_CALL_OUTPUT = JSON.stringify({ ok: true });
+/**
+ * 委任（delegation）への応答。この中継は外部の処理をしないので、会話を続けるよう伝える。
+ * 委任を待ったまま会話が止まらないようにするため（ADR 0014）。
+ */
+const DELEGATION_REPLY =
+  'この会話では外部の処理や検索はできません。利用者への質問と、聞き取った内容の確認を続けてください。';
+
+/** 中継が扱う必要のない、既知のイベント。知らないイベントとしてログに出さない。 */
+const IGNORED_EVENTS = new Set([
+  'session.updated',
+  'session.thinking.appended',
+  'session.commentary.appended',
+  'session.instructions.appended',
+]);
 
 export interface SessionOptions {
-  audioFormat: AudioFormat;
-  transcriptionModel: string | undefined;
+  model: string;
   voice: string;
   readyTimeoutMs: number;
+  /** session.close を送ってから session.closed を待つ時間。 */
+  closeTimeoutMs: number;
+}
+
+/** エラーのイベントか。`"error": null` を持つだけの通常のイベントは、エラーとして扱わない。 */
+function isErrorEvent(message: Record<string, unknown>): boolean {
+  const type = typeof message.type === 'string' ? message.type : '';
+  return (
+    type === 'error' ||
+    type.endsWith('.error') ||
+    (message.error !== null && typeof message.error === 'object')
+  );
+}
+
+/** 委任の id。文書では位置が明確でないため、最上位と delegation の中の両方を見る。 */
+function delegationId(message: Record<string, unknown>): string | undefined {
+  if (typeof message.id === 'string') return message.id;
+  const nested = message.delegation;
+  if (nested && typeof nested === 'object') {
+    const { id } = nested as Record<string, unknown>;
+    if (typeof id === 'string') return id;
+  }
+  return undefined;
 }
 
 export class RelaySession {
@@ -30,15 +65,20 @@ export class RelaySession {
   readonly key = randomBytes(32).toString('base64url');
   readonly createdAt: number;
   lastActivityAt: number;
+  /** close を始めたら true。以降は音声を受け付けない。 */
+  closing = false;
+  /** 片付けが終わったら true。 */
   closed = false;
-  /** Foundry が session.updated を返したら解決する。失敗したら拒否する。 */
+  /** Foundry が session.started を返したら解決する。失敗したら拒否する。 */
   readonly ready: Promise<void>;
 
   private sink: ((event: RelayEvent) => void) | undefined;
   private backlog: RelayEvent[] = [];
   private attached = false;
-  private configured = false;
-  private pendingCallIds: string[] = [];
+  private started = false;
+  private closeReason: CloseReason = 'client';
+  private closeTimer: NodeJS.Timeout | undefined;
+  private readonly unknownTypes = new Set<string>();
   private resolveReady!: () => void;
   private rejectReady!: (error: Error) => void;
   private readonly readyTimer: NodeJS.Timeout;
@@ -59,17 +99,26 @@ export class RelaySession {
     // 拒否を誰も待っていない場合に、未処理の拒否にしない
     this.ready.catch(() => {});
     this.readyTimer = setTimeout(
-      () => this.fail(new Error('Realtime session was not configured in time')),
+      () => this.fail(new Error('Live session did not start in time')),
       options.readyTimeoutMs,
+    );
+    socket.onOpen(() =>
+      this.sendUpstream(
+        buildSessionStart({
+          model: options.model,
+          instructions: ticket.instructions,
+          voice: options.voice,
+        }),
+      ),
     );
     socket.onMessage((text) => this.handleUpstream(text));
     socket.onError((error) => {
-      if (this.configured) logError('Realtime socket error', error);
+      if (this.started) logError('Live socket error', error);
       else this.fail(error);
     });
     socket.onClose(() => {
-      if (this.configured) this.close('upstream_closed');
-      else this.fail(new Error('Realtime socket closed before configuration'));
+      if (!this.started) this.fail(new Error('Live socket closed before the session started'));
+      else this.finish(this.closing ? this.closeReason : 'upstream_closed');
     });
   }
 
@@ -86,26 +135,45 @@ export class RelaySession {
     return actual.length === expected.length && timingSafeEqual(actual, expected);
   }
 
-  /** SSE をつなぐ。1 セッションにつき 1 本だけ。つないだときに AI の最初の発言を作らせる。 */
+  /** SSE をつなぐ。1 セッションにつき 1 本だけ。 */
   attach(sink: (event: RelayEvent) => void): boolean {
     if (this.attached || this.closed) return false;
     this.attached = true;
     this.sink = sink;
     for (const event of this.backlog) sink(event);
     this.backlog = [];
-    this.sendUpstream({ type: 'response.create' });
     return true;
   }
 
   appendAudio(audio: Buffer, now: number): void {
+    if (this.closing) return;
     this.lastActivityAt = now;
-    this.sendUpstream({ type: 'input_audio_buffer.append', audio: audio.toString('base64') });
+    this.sendUpstream({ type: 'session.input_audio.append', audio: audio.toString('base64') });
   }
 
+  /**
+   * 会話を終える。session.close を送り、session.closed（最後の字幕と usage）を待ってから閉じる。
+   * その間に届いた字幕もブラウザーへ送る（終了の直前の AI のまとめを、抽出に含めるため）。
+   */
   close(reason: CloseReason): void {
+    if (this.closing || this.closed) return;
+    this.closing = true;
+    this.closeReason = reason;
+    if (!this.started) {
+      this.finish(reason);
+      return;
+    }
+    this.sendUpstream({ type: 'session.close' });
+    this.closeTimer = setTimeout(() => this.finish(reason), this.options.closeTimeoutMs);
+  }
+
+  /** 片付けて、ブラウザーに closed を送る。 */
+  private finish(reason: CloseReason): void {
     if (this.closed) return;
+    this.closing = true;
     this.closed = true;
     clearTimeout(this.readyTimer);
+    clearTimeout(this.closeTimer);
     this.emit({ event: 'closed', data: { reason } });
     this.sink = undefined;
     this.socket.close();
@@ -113,8 +181,9 @@ export class RelaySession {
   }
 
   private fail(error: Error): void {
-    if (this.configured || this.closed) return;
+    if (this.started || this.closed) return;
     clearTimeout(this.readyTimer);
+    this.closing = true;
     this.closed = true;
     this.rejectReady(error);
     this.socket.close();
@@ -137,79 +206,70 @@ export class RelaySession {
     } catch {
       return;
     }
-    switch (message.type) {
-      case 'session.created':
-        // 既定のセッション（汎用の人格、ツールなし）のまま会話させないよう、まず設定を送る
-        this.sendUpstream(
-          buildSessionUpdate({
-            instructions: this.ticket.instructions,
-            tools: this.ticket.tools,
-            audioFormat: this.options.audioFormat,
-            transcriptionModel: this.options.transcriptionModel,
-            voice: this.options.voice,
-          }),
-        );
-        break;
-      case 'session.updated':
-        if (!this.configured) {
-          this.configured = true;
+    const type = typeof message.type === 'string' ? message.type : '';
+    if (isErrorEvent(message)) {
+      const error = (typeof message.error === 'object' && message.error) || {};
+      const detail = {
+        type,
+        code: (error as Record<string, unknown>).code,
+      };
+      // 開始が拒否されたら、ブラウザーに失敗を返す
+      if (this.started) logError('Live error event', detail);
+      else this.fail(Object.assign(new Error('Live session.start was rejected'), detail));
+      return;
+    }
+    switch (type) {
+      case 'session.started':
+        if (!this.started) {
+          this.started = true;
           clearTimeout(this.readyTimer);
           this.resolveReady();
         }
         break;
-      case 'error': {
-        const error = (message.error ?? {}) as Record<string, unknown>;
-        const detail = { code: error.code, type: error.type };
-        // 設定が拒否されたら、既定のセッションのまま続けずに失敗させる
-        if (this.configured) logError('Realtime error event', detail);
-        else this.fail(Object.assign(new Error('Realtime session.update was rejected'), detail));
+      case 'session.output_audio.delta':
+        if (typeof message.delta === 'string' || typeof message.audio === 'string') {
+          this.emit({ event: 'audio', data: { delta: message.delta ?? message.audio } });
+        }
+        break;
+      case 'session.input_transcript.delta':
+      case 'session.output_transcript.delta':
+        if (typeof message.delta === 'string' && message.delta !== '') {
+          this.emit({
+            event: 'transcript',
+            data: {
+              role: type === 'session.input_transcript.delta' ? 'user' : 'assistant',
+              delta: message.delta,
+            },
+          });
+        }
+        break;
+      case 'session.delegation.created': {
+        const id = delegationId(message);
+        if (id) {
+          this.sendUpstream({
+            type: 'session.thinking.append',
+            delegation_id: id,
+            content: DELEGATION_REPLY,
+          });
+        } else if (!this.unknownTypes.has('delegation without id')) {
+          this.unknownTypes.add('delegation without id');
+          logInfo('Live delegation without id', { keys: Object.keys(message) });
+        }
         break;
       }
-      case 'response.output_audio.delta':
-        if (typeof message.delta === 'string') {
-          this.emit({ event: 'audio', data: { delta: message.delta } });
-        }
-        break;
-      case 'response.output_audio_transcript.done':
-        if (typeof message.transcript === 'string') {
-          this.emit({ event: 'transcript', data: { role: 'assistant', text: message.transcript } });
-        }
-        break;
-      case 'conversation.item.input_audio_transcription.completed':
-        if (typeof message.transcript === 'string') {
-          this.emit({ event: 'transcript', data: { role: 'user', text: message.transcript } });
-        }
-        break;
-      case 'input_audio_buffer.speech_started':
-        this.emit({ event: 'speech_started', data: {} });
-        break;
-      case 'response.output_item.done': {
-        const item = (message.item ?? {}) as Record<string, unknown>;
-        if (item.type !== 'function_call' || typeof item.call_id !== 'string') break;
-        let args: unknown = {};
-        try {
-          args = JSON.parse(typeof item.arguments === 'string' ? item.arguments : '{}');
-        } catch {
-          args = {};
-        }
-        this.emit({ event: 'tool_call', data: { name: item.name, arguments: args } });
-        this.pendingCallIds.push(item.call_id);
-        break;
-      }
-      case 'response.done':
-        // 応答中に response.create を送るとエラーになるため、応答が終わってから結果を返して続きを作らせる
-        if (this.pendingCallIds.length > 0) {
-          for (const callId of this.pendingCallIds) {
-            this.sendUpstream({
-              type: 'conversation.item.create',
-              item: { type: 'function_call_output', call_id: callId, output: FUNCTION_CALL_OUTPUT },
-            });
-          }
-          this.pendingCallIds = [];
-          this.sendUpstream({ type: 'response.create' });
-        }
+      case 'session.closed':
+        logInfo('Live session closed', {
+          reason: message.reason,
+          usage: message.usage,
+        });
+        this.finish(this.closing ? this.closeReason : 'upstream_closed');
         break;
       default:
+        // エラーや割り込みのイベント名は文書にないため、種類名だけを 1 回ずつ記録して調べられるようにする
+        if (!IGNORED_EVENTS.has(type) && !this.unknownTypes.has(type)) {
+          this.unknownTypes.add(type);
+          logInfo('Live event not handled', { type });
+        }
         break;
     }
   }
@@ -238,7 +298,7 @@ export class SessionManager {
     return this.sessions.get(id);
   }
 
-  /** Foundry に接続し、設定が反映されるまで待つ。失敗したら例外を投げる。 */
+  /** Foundry に接続し、セッションが始まるまで待つ。失敗したら例外を投げる。 */
   async create(ticket: TicketPayload, now: number): Promise<RelaySession> {
     const session = new RelaySession(this.options.connect(), ticket, this.options, now, (closed) =>
       this.sessions.delete(closed.id),
@@ -252,6 +312,7 @@ export class SessionManager {
   sweep(now: number): void {
     // Map は反復中に削除しても安全
     for (const session of this.sessions.values()) {
+      if (session.closing) continue;
       if (now - session.createdAt >= session.maxSeconds * 1000) {
         session.close('time_limit');
       } else if (now - session.lastActivityAt >= this.options.idleSeconds * 1000) {

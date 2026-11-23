@@ -122,3 +122,15 @@ App Service F1 の制限（Azure のサービス制限のページ。2026-09 更
   - 中継はデータを保存せず、Cosmos DB や Storage にもつながないので、リージョンを分けても影響はない。
   - Foundry リソース `voice-stt-foundary` は West US 3 にある。ブラウザーは 200 ms ごとに音声を 1 つずつ POST するため、往復の短い利用者の近く（日本）に中継を置く。中継と Foundry の間は WebSocket 1 本なので、距離の影響は小さい。
 - Japan West でも同じエラーになった場合は、クォータの引き上げを申請するか、中継を別のリソースグループに置く。
+
+## 追記（2026-11-23）: Foundry 側を GPT-Live に置き換えた
+
+[ADR 0014](./0014-voice-conversation-gpt-live.md) で、`gpt-realtime-2.1-mini` を全二重の `gpt-live-1` に置き換えた。この ADR のうち、次の部分は 0014 に置き換わっている。
+
+- Foundry への接続先（`/openai/v1/live/sessions`）と、開始の手順（`session.start` → `session.started`）
+- ブラウザーへのイベント（`speech_started` と `tool_call` を削除し、`transcript` を断片にした）
+- ツール `record_proposal_info` と、その自動応答（記録は会話の後で抽出する）
+- `REALTIME_AUDIO_FORMAT` と `REALTIME_TRANSCRIPTION_MODEL` の設定、`audio/pcmu` の確認
+- チケットの形式（`v: 2` でツールを外した）
+
+中継を App Service（F1、Japan West）に置くこと、ブラウザーと HTTPS（POST と SSE）だけでつなぐこと、チケットとセッションキーによる認証、上限、CORS は、この ADR のまま変わらない。

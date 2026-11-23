@@ -1,7 +1,8 @@
-// 中継の HTTP ハンドラー（ADR 0013）。ブラウザーとは HTTPS の POST と SSE だけでやりとりする。
+// 中継の HTTP ハンドラー（ADR 0013・0014）。ブラウザーとは HTTPS の POST と SSE だけでやりとりする。
 // エラーレスポンスには固定メッセージだけを返し、Foundry の応答内容は含めない。
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { originMatcher } from './lib/cors';
+import { AUDIO_FORMAT } from './lib/live';
 import { logError } from './lib/log';
 import type { RelayEvent, SessionManager } from './lib/session';
 import type { RelayConfig } from './lib/settings';
@@ -106,7 +107,7 @@ export function createRelayHandler(
       sendJson(response, 201, {
         sessionId: session.id,
         sessionKey: session.key,
-        audioFormat: config.audioFormat,
+        audioFormat: AUDIO_FORMAT,
         maxSeconds,
       });
     } catch (error) {

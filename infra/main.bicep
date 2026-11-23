@@ -26,13 +26,8 @@ param relayAppName string = 'app-flyingfish-relay-${uniqueString(resourceGroup()
 param relayNodeVersion string = 'NODE|24-lts'
 @description('中継が接続する Foundry リソースのエンドポイント。')
 param foundryRealtimeEndpoint string = 'https://voice-stt-foundary.openai.azure.com/'
-@description('Realtime モデルのデプロイ名。')
-param foundryRealtimeModel string = 'gpt-realtime-2.1-mini'
-@allowed(['pcm', 'pcmu'])
-@description('音声会話の音声形式。pcm は PCM16・24 kHz、pcmu は G.711 μ-law・8 kHz（帯域が約 1/6）。')
-param realtimeAudioFormat string = 'pcm'
-@description('利用者の発話の文字起こしに使うモデル。off なら文字起こししない。')
-param realtimeTranscriptionModel string = 'whisper-1'
+@description('GPT-Live（全二重の音声モデル）のモデル（デプロイ）名（ADR 0014）。')
+param foundryLiveModel string = 'gpt-live-1'
 @secure()
 @description('中継が Foundry を呼ぶ API キー。空なら中継は起動しない（音声会話は使えない）。')
 param foundryRealtimeApiKey string = ''
@@ -231,11 +226,9 @@ resource relayApp 'Microsoft.Web/sites@2024-04-01' = {
       appSettings: [
         { name: 'SCM_DO_BUILD_DURING_DEPLOYMENT', value: 'false' }
         { name: 'FOUNDRY_REALTIME_ENDPOINT', value: foundryRealtimeEndpoint }
-        { name: 'FOUNDRY_REALTIME_MODEL', value: foundryRealtimeModel }
+        { name: 'FOUNDRY_LIVE_MODEL', value: foundryLiveModel }
         { name: 'FOUNDRY_REALTIME_API_KEY', value: foundryRealtimeApiKey }
         { name: 'REALTIME_TICKET_SECRET', value: realtimeTicketSecret }
-        { name: 'REALTIME_AUDIO_FORMAT', value: realtimeAudioFormat }
-        { name: 'REALTIME_TRANSCRIPTION_MODEL', value: realtimeTranscriptionModel }
         { name: 'RELAY_ALLOWED_ORIGINS', value: relayAllowedOrigins }
       ]
     }

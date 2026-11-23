@@ -1,16 +1,15 @@
-// 中継を使うためのチケットの検証（ADR 0013）。
+// 中継を使うためのチケットの検証（ADR 0013。v2 でツールを外した、ADR 0014）。
 // 発行は SWA API（src/api/src/lib/relayTicket.ts）で、形式は base64url(payload).base64url(HMAC-SHA256(payload 部分))。
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export interface TicketPayload {
-  v: 1;
+  v: 2;
   nonce: string;
   /** 有効期限（UNIX 秒）。 */
   exp: number;
   productId: string;
   userId: string;
   instructions: string;
-  tools: unknown[];
   maxSeconds: number;
 }
 
@@ -37,14 +36,13 @@ function isPayload(value: unknown): value is TicketPayload {
   if (!value || typeof value !== 'object') return false;
   const p = value as Record<string, unknown>;
   return (
-    p.v === 1 &&
+    p.v === 2 &&
     typeof p.nonce === 'string' &&
     p.nonce !== '' &&
     typeof p.exp === 'number' &&
     typeof p.productId === 'string' &&
     typeof p.userId === 'string' &&
     typeof p.instructions === 'string' &&
-    Array.isArray(p.tools) &&
     typeof p.maxSeconds === 'number'
   );
 }

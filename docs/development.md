@@ -89,14 +89,12 @@ func start
    ```bash
    FOUNDRY_REALTIME_ENDPOINT=https://voice-stt-foundary.openai.azure.com/ \
    FOUNDRY_REALTIME_API_KEY=<キー> \
-   FOUNDRY_REALTIME_MODEL=gpt-realtime-2.1-mini \
+   FOUNDRY_LIVE_MODEL=gpt-live-1 \
    REALTIME_TICKET_SECRET=<任意の乱数> \
    npm -w src/relay run dev
    ```
 
    任意の設定は次のとおりです。
-   - `REALTIME_AUDIO_FORMAT`: `pcm` か `pcmu`（既定 `pcm`）
-   - `REALTIME_TRANSCRIPTION_MODEL`: 既定 `whisper-1`。`off` で無効
    - `REALTIME_VOICE`: 既定 `marin`
    - `RELAY_ALLOWED_ORIGINS`: 既定 `http://localhost:5173`
    - `PORT`

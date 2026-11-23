@@ -1,17 +1,16 @@
-// 音声会話の中継（App Service、ADR 0013）を使うためのチケットの署名。
+// 音声会話の中継（App Service、ADR 0013）を使うためのチケットの署名。v2 でツールを外した（ADR 0014）。
 // 形式は base64url(payload).base64url(HMAC-SHA256(payload 部分))。検証は src/relay/src/lib/ticket.ts。
 // 形式を変えるときは、両方のテストのテストベクターを合わせて変える。
 import { createHmac, randomUUID } from 'node:crypto';
 
 export interface RelayTicketPayload {
-  v: 1;
+  v: 2;
   nonce: string;
   /** 有効期限（UNIX 秒）。 */
   exp: number;
   productId: string;
   userId: string;
   instructions: string;
-  tools: unknown[];
   maxSeconds: number;
 }
 
@@ -31,5 +30,5 @@ export function newTicketPayload(
   fields: Omit<RelayTicketPayload, 'v' | 'nonce' | 'exp'>,
   nowSeconds: number,
 ): RelayTicketPayload {
-  return { v: 1, nonce: randomUUID(), exp: nowSeconds + TICKET_TTL_SECONDS, ...fields };
+  return { v: 2, nonce: randomUUID(), exp: nowSeconds + TICKET_TTL_SECONDS, ...fields };
 }

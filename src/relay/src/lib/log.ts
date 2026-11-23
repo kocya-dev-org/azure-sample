@@ -14,3 +14,8 @@ export function logError(message: string, error: unknown): void {
   }
   console.error(message, detail);
 }
+
+/** 調査用の記録。値にはイベントの種類名や件数だけを渡し、音声や発言の内容は渡さない。 */
+export function logInfo(message: string, detail: Record<string, unknown> = {}): void {
+  console.log(message, detail);
+}
