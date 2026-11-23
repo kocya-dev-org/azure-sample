@@ -6,6 +6,7 @@ import {
   type InvocationContext,
 } from '@azure/functions';
 import { streamText } from '../lib/foundry';
+import { withAuth } from '../lib/auth';
 import { jsonError, logError, readJsonObject } from '../lib/http';
 import { buildReviewPrompt } from '../lib/prompts';
 import { parseProposalInput } from '../lib/proposal-input';
@@ -105,5 +106,5 @@ app.http('reviewProposal', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'products/{productId}/proposals/review',
-  handler: reviewProposalHandler,
+  handler: withAuth(reviewProposalHandler),
 });

@@ -8,6 +8,7 @@ import {
   type InvocationContext,
 } from '@azure/functions';
 import { generateJson } from '../lib/foundry';
+import { withAuth } from '../lib/auth';
 import { getPrincipal, jsonError, logError, readJsonObject, type JsonObject } from '../lib/http';
 import {
   buildConversationPrompt,
@@ -191,12 +192,12 @@ app.http('createVoiceSession', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'products/{productId}/voice-sessions',
-  handler: createVoiceSessionHandler,
+  handler: withAuth(createVoiceSessionHandler),
 });
 
 app.http('extractVoiceRecord', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'products/{productId}/voice-sessions/extract',
-  handler: extractVoiceRecordHandler,
+  handler: withAuth(extractVoiceRecordHandler),
 });

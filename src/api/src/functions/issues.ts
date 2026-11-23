@@ -6,6 +6,7 @@ import {
   type InvocationContext,
 } from '@azure/functions';
 import { createIssue, isGithubEnabled } from '../lib/github';
+import { withAuth } from '../lib/auth';
 import { jsonError, logError, readJsonObject } from '../lib/http';
 import { syncProductIssueStatus } from '../lib/issueSync';
 import { getProduct, getProposal, getScoredItem, saveScoredItem } from '../lib/store';
@@ -107,7 +108,7 @@ app.http('createIssues', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'products/{productId}/issues',
-  handler: createIssuesHandler,
+  handler: withAuth(createIssuesHandler),
 });
 
 /** 起票済みで未対応の項目について Issue の状態を確認し、completed で close されていれば実装済みにする。 */
@@ -140,5 +141,5 @@ app.http('syncIssueStatus', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'products/{productId}/issues/sync',
-  handler: syncIssueStatusHandler,
+  handler: withAuth(syncIssueStatusHandler),
 });

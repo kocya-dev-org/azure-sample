@@ -5,6 +5,7 @@ import {
   type HttpResponseInit,
   type InvocationContext,
 } from '@azure/functions';
+import { withAuth } from '../lib/auth';
 import { jsonError, logError, readJsonObject } from '../lib/http';
 import { getScoredItem, saveScoredItem } from '../lib/store';
 import type { ItemStatus, ScoredItem } from '../lib/types';
@@ -45,5 +46,5 @@ app.http('updateItemStatus', {
   methods: ['PATCH'],
   authLevel: 'anonymous',
   route: 'products/{productId}/items/{id}',
-  handler: updateItemStatusHandler,
+  handler: withAuth(updateItemStatusHandler),
 });

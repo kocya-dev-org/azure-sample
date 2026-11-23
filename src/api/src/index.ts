@@ -5,6 +5,7 @@ import { app } from '@azure/functions';
 
 app.setup({ enableHttpStream: true });
 
+import './functions/me';
 import './functions/products';
 import './functions/review';
 import './functions/proposals';

@@ -6,6 +6,7 @@ import {
   type InvocationContext,
 } from '@azure/functions';
 import { isGithubEnabled } from '../lib/github';
+import { withAuth } from '../lib/auth';
 import { jsonError, logError } from '../lib/http';
 import { getProduct, listProposals, listScoredItems } from '../lib/store';
 import type { Proposal, ScoredItem } from '../lib/types';
@@ -81,5 +82,5 @@ app.http('dashboard', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'products/{productId}/dashboard',
-  handler: dashboardHandler,
+  handler: withAuth(dashboardHandler),
 });
