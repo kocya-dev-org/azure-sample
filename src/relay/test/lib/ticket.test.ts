@@ -11,7 +11,7 @@ const NOW = 1_900_000_000;
 const TICKET_VECTOR = {
   secret: 'vector-secret',
   ticket:
-    'eyJ2IjoxLCJub25jZSI6Im4xIiwiZXhwIjoxOTAwMDAwMzAwLCJwcm9kdWN0SWQiOiJwMSIsInVzZXJJZCI6InUxIiwiaW5zdHJ1Y3Rpb25zIjoi5oyH56S6IiwidG9vbHMiOltdLCJtYXhTZWNvbmRzIjozMDB9.3yC4M11vboTvhqcRKwShK1FX5SgUS0N0ZR8NatfRqmk',
+    'eyJ2IjoyLCJub25jZSI6Im4xIiwiZXhwIjoxOTAwMDAwMzAwLCJwcm9kdWN0SWQiOiJwMSIsInVzZXJJZCI6InUxIiwiaW5zdHJ1Y3Rpb25zIjoi5oyH56S6IiwibWF4U2Vjb25kcyI6MzAwfQ.b8SoszxETc_HihinISbjcTwQ0qlFBSorvrKJ7PmWKqU',
 };
 
 describe('verifyTicket', () => {
@@ -59,6 +59,16 @@ describe('verifyTicket', () => {
     const ticket = signTicket(makePayload());
     expect(verifyTicket(ticket, SECRET, NOW, nonces).ok).toBe(true);
     expect(verifyTicket(ticket, SECRET, NOW, nonces)).toEqual({ ok: false, reason: 'reused' });
+  });
+
+  it('古い形式（v1）のチケットは拒否する', () => {
+    const ticket = signTicket({ ...makePayload(), v: 1 } as unknown as ReturnType<
+      typeof makePayload
+    >);
+    expect(verifyTicket(ticket, SECRET, NOW, new NonceStore())).toEqual({
+      ok: false,
+      reason: 'malformed',
+    });
   });
 
   it('形式が違えば拒否する', () => {

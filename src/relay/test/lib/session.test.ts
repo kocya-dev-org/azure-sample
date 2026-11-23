@@ -1,25 +1,28 @@
 import { describe, expect, it, vi } from 'vitest';
-import { buildSessionUpdate, realtimeUrl } from '../../src/lib/realtime';
+import { buildSessionStart, liveUrl } from '../../src/lib/live';
+import { logInfo } from '../../src/lib/log';
 import { SessionManager, type RelayEvent } from '../../src/lib/session';
 import { FakeSocket, makePayload, ReadySocket } from '../helpers';
 
-vi.mock('../../src/lib/log', () => ({ logError: vi.fn<(...args: unknown[]) => void>() }));
+vi.mock('../../src/lib/log', () => ({
+  logError: vi.fn<(...args: unknown[]) => void>(),
+  logInfo: vi.fn<(...args: unknown[]) => void>(),
+}));
 
 const OPTIONS = {
   maxSessions: 2,
   idleSeconds: 30,
-  audioFormat: 'pcm' as const,
-  transcriptionModel: 'whisper-1',
+  model: 'gpt-live-1',
   voice: 'marin',
   readyTimeoutMs: 1000,
+  closeTimeoutMs: 1000,
 };
 
 function managerWith(socket: FakeSocket) {
   return new SessionManager({ ...OPTIONS, connect: () => socket });
 }
 
-async function openSession() {
-  const socket = new ReadySocket().start();
+async function openSession(socket: FakeSocket = new ReadySocket().start()) {
   const manager = managerWith(socket);
   const session = await manager.create(makePayload(), 0);
   const events: RelayEvent[] = [];
@@ -27,50 +30,67 @@ async function openSession() {
   return { socket, manager, session, events };
 }
 
-describe('realtimeUrl', () => {
-  it('v1 の WebSocket の URL を作る', () => {
-    expect(realtimeUrl('https://voice.openai.azure.com/', 'gpt-realtime-2.1-mini')).toBe(
-      'wss://voice.openai.azure.com/openai/v1/realtime?model=gpt-realtime-2.1-mini',
+describe('liveUrl / buildSessionStart', () => {
+  it('GPT-Live の WebSocket の URL を作る（model は URL に入れない）', () => {
+    expect(liveUrl('https://voice.openai.azure.com/')).toBe(
+      'wss://voice.openai.azure.com/openai/v1/live/sessions',
     );
   });
-});
 
-describe('buildSessionUpdate', () => {
-  it('μ-law では rate を付けず、文字起こしを無効にできる', () => {
-    const update = buildSessionUpdate({
-      instructions: '指示',
-      tools: [],
-      audioFormat: 'pcmu',
-      transcriptionModel: undefined,
-      voice: 'marin',
-    }) as { session: { audio: { input: Record<string, unknown> } } };
-    expect(update.session.audio.input.format).toEqual({ type: 'audio/pcmu' });
-    expect(update.session.audio.input.transcription).toBeNull();
+  it('session.start には文書にあるフィールドだけを入れる', () => {
+    expect(
+      buildSessionStart({ model: 'gpt-live-1', instructions: '指示', voice: 'marin' }),
+    ).toEqual({
+      type: 'session.start',
+      session: { model: 'gpt-live-1', instructions: '指示', audio: { output: { voice: 'marin' } } },
+    });
   });
 });
 
 describe('SessionManager', () => {
-  it('session.created に設定を送り、session.updated で使えるようになる', async () => {
+  it('接続したら session.start を送り、session.started で使えるようになる', async () => {
     const { socket, manager } = await openSession();
-    const update = socket.sent[0] as { type: string; session: Record<string, unknown> };
-    expect(update.type).toBe('session.update');
-    expect(update.session.instructions).toBe('RICE の情報を聞き出してください。');
-    expect(update.session.tools).toEqual(makePayload().tools);
+    const start = socket.sent[0] as { type: string; session: Record<string, unknown> };
+    expect(start.type).toBe('session.start');
+    expect(start.session.instructions).toBe('RICE の情報を聞き出してください。');
+    expect(start.session.model).toBe('gpt-live-1');
     expect(manager.size).toBe(1);
   });
 
-  it('設定が拒否されたら失敗し、既定のセッションのまま使わない', async () => {
+  it('`"error": null` を持つだけのイベントは、エラーとして扱わない', async () => {
     const socket = new FakeSocket();
     const manager = managerWith(socket);
     const created = manager.create(makePayload(), 0);
-    socket.receive({ type: 'session.created' });
+    socket.open();
+    socket.receive({ type: 'session.started', error: null });
+    const session = await created;
+    const events: RelayEvent[] = [];
+    session.attach((event) => events.push(event));
+    session.close('client');
+    socket.receive({ type: 'session.closed', error: null, usage: {} });
+    expect(events).toEqual([{ event: 'closed', data: { reason: 'client' } }]);
+    expect(socket.closed).toBe(true);
+  });
+
+  it('開始が拒否されたら失敗し、エラーの内容を含めない', async () => {
+    const socket = new FakeSocket();
+    const manager = managerWith(socket);
+    const created = manager.create(makePayload(), 0);
+    socket.open();
     socket.receive({ type: 'error', error: { code: 'invalid_value', message: 'secret detail' } });
     await expect(created).rejects.toThrow('rejected');
     expect(socket.closed).toBe(true);
     expect(manager.size).toBe(0);
   });
 
-  it('設定が時間内に終わらなければ失敗する', async () => {
+  it('開始の前に切断されたら失敗する', async () => {
+    const socket = new FakeSocket();
+    const created = managerWith(socket).create(makePayload(), 0);
+    socket.disconnect();
+    await expect(created).rejects.toThrow('before the session started');
+  });
+
+  it('時間内に始まらなければ失敗する', async () => {
     vi.useFakeTimers();
     try {
       const socket = new FakeSocket();
@@ -83,88 +103,111 @@ describe('SessionManager', () => {
     }
   });
 
-  it('SSE をつないだら最初の発言を作らせ、2 本目は拒否する', async () => {
-    const { socket, session } = await openSession();
-    expect(socket.sentTypes()).toEqual(['session.update', 'response.create']);
+  it('音声と字幕の断片をブラウザー向けの形にして転送する', async () => {
+    const { socket, events, session } = await openSession();
     expect(session.attach(() => {})).toBe(false);
-  });
-
-  it('必要なイベントだけをブラウザー向けの形にして転送する', async () => {
-    const { socket, events } = await openSession();
-    socket.receive({ type: 'response.output_audio.delta', delta: 'AAAA' });
-    socket.receive({
-      type: 'response.output_audio_transcript.done',
-      transcript: '対象は何人ですか？',
-    });
-    socket.receive({
-      type: 'conversation.item.input_audio_transcription.completed',
-      transcript: '500 社です',
-    });
-    socket.receive({ type: 'input_audio_buffer.speech_started' });
-    socket.receive({ type: 'rate_limits.updated' });
+    socket.receive({ type: 'session.output_audio.delta', delta: 'AAAA', start_ms: 0, end_ms: 100 });
+    socket.receive({ type: 'session.output_transcript.delta', delta: '対象は', start_ms: 0 });
+    socket.receive({ type: 'session.input_transcript.delta', delta: '500 社', start_ms: 0 });
+    socket.receive({ type: 'session.input_transcript.delta', delta: '' });
     expect(events).toEqual([
       { event: 'audio', data: { delta: 'AAAA' } },
-      { event: 'transcript', data: { role: 'assistant', text: '対象は何人ですか？' } },
-      { event: 'transcript', data: { role: 'user', text: '500 社です' } },
-      { event: 'speech_started', data: {} },
+      { event: 'transcript', data: { role: 'assistant', delta: '対象は' } },
+      { event: 'transcript', data: { role: 'user', delta: '500 社' } },
     ]);
   });
 
-  it('ツール呼び出しを転送し、応答が終わってから結果と続きの応答を送る', async () => {
-    const { socket, events } = await openSession();
+  it('委任には、会話を続けるよう応答する', async () => {
+    const { socket } = await openSession();
     socket.sent = [];
-    socket.receive({
-      type: 'response.output_item.done',
-      item: {
-        type: 'function_call',
-        name: 'record_proposal_info',
-        call_id: 'call-1',
-        arguments: '{"reach":"四半期 500 社"}',
-      },
-    });
-    expect(events).toEqual([
-      {
-        event: 'tool_call',
-        data: { name: 'record_proposal_info', arguments: { reach: '四半期 500 社' } },
-      },
-    ]);
-    expect(socket.sent).toEqual([]);
-
-    socket.receive({ type: 'response.done' });
+    socket.receive({ type: 'session.delegation.created', id: 'del-1', target: 'client' });
+    socket.receive({ type: 'session.delegation.created', delegation: { id: 'del-2' } });
     expect(socket.sent).toEqual([
-      {
-        type: 'conversation.item.create',
-        item: { type: 'function_call_output', call_id: 'call-1', output: '{"ok":true}' },
-      },
-      { type: 'response.create' },
+      expect.objectContaining({ type: 'session.thinking.append', delegation_id: 'del-1' }),
+      expect.objectContaining({ type: 'session.thinking.append', delegation_id: 'del-2' }),
     ]);
   });
 
-  it('音声を base64 で Foundry に送る', async () => {
+  it('知らないイベントは種類名だけを 1 回記録する', async () => {
+    const { socket } = await openSession();
+    vi.mocked(logInfo).mockClear();
+    socket.receive({ type: 'session.something', secret: 'x' });
+    socket.receive({ type: 'session.something', secret: 'y' });
+    expect(logInfo).toHaveBeenCalledTimes(1);
+    expect(logInfo).toHaveBeenCalledWith('Live event not handled', { type: 'session.something' });
+  });
+
+  it('音声を session.input_audio.append で送る', async () => {
     const { socket, session } = await openSession();
     session.appendAudio(Buffer.from([1, 2, 3]), 10);
-    expect(socket.sent.at(-1)).toEqual({ type: 'input_audio_buffer.append', audio: 'AQID' });
+    expect(socket.sent.at(-1)).toEqual({ type: 'session.input_audio.append', audio: 'AQID' });
     expect(session.lastActivityAt).toBe(10);
   });
 
-  it('上限時間と無通信でセッションを閉じる', async () => {
-    const { manager, session, events, socket } = await openSession();
-    manager.sweep(29_000);
-    expect(session.closed).toBe(false);
-    manager.sweep(30_000);
-    expect(events.at(-1)).toEqual({ event: 'closed', data: { reason: 'idle' } });
+  it('終了では session.close を送り、session.closed までの字幕も転送してから閉じる', async () => {
+    const socket = new FakeSocket();
+    queueMicrotask(() => socket.open());
+    const manager = managerWith(socket);
+    const created = manager.create(makePayload(), 0);
+    await Promise.resolve();
+    socket.receive({ type: 'session.started' });
+    const session = await created;
+    const events: RelayEvent[] = [];
+    session.attach((event) => events.push(event));
+
+    session.close('client');
+    expect(socket.sentTypes().at(-1)).toBe('session.close');
+    session.appendAudio(Buffer.from([1]), 1);
+    expect(socket.sentTypes().at(-1)).toBe('session.close');
+    expect(socket.closed).toBe(false);
+
+    socket.receive({ type: 'session.output_transcript.delta', delta: 'まとめです' });
+    socket.receive({ type: 'session.closed', reason: 'client', usage: {} });
+    expect(events).toEqual([
+      { event: 'transcript', data: { role: 'assistant', delta: 'まとめです' } },
+      { event: 'closed', data: { reason: 'client' } },
+    ]);
     expect(socket.closed).toBe(true);
     expect(manager.size).toBe(0);
+  });
+
+  it('session.closed が来なくても、時間がたてば閉じる', async () => {
+    const socket = new FakeSocket();
+    const manager = managerWith(socket);
+    const created = manager.create(makePayload(), 0);
+    socket.open();
+    socket.receive({ type: 'session.started' });
+    const session = await created;
+    const events: RelayEvent[] = [];
+    session.attach((event) => events.push(event));
+    vi.useFakeTimers();
+    try {
+      session.close('time_limit');
+      vi.advanceTimersByTime(OPTIONS.closeTimeoutMs);
+      expect(events.at(-1)).toEqual({ event: 'closed', data: { reason: 'time_limit' } });
+      expect(socket.closed).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('上限時間と無通信で終了を始める', async () => {
+    const { manager, session, socket } = await openSession();
+    manager.sweep(29_000);
+    expect(session.closing).toBe(false);
+    manager.sweep(30_000);
+    expect(session.closing).toBe(true);
+    expect(socket.sentTypes().at(-1)).toBe('session.close');
 
     const other = await openSession();
     other.session.appendAudio(Buffer.from([0]), 299_000);
     other.manager.sweep(300_000);
-    expect(other.events.at(-1)).toEqual({ event: 'closed', data: { reason: 'time_limit' } });
+    expect(other.session.closing).toBe(true);
   });
 
-  it('Foundry が切断したらセッションを閉じる', async () => {
+  it('GPT-Live が自分から閉じたら upstream_closed で閉じる', async () => {
     const { socket, events } = await openSession();
-    socket.disconnect();
+    socket.receive({ type: 'session.closed', reason: 'max_duration' });
     expect(events.at(-1)).toEqual({ event: 'closed', data: { reason: 'upstream_closed' } });
   });
 

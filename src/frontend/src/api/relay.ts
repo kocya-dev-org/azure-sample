@@ -1,4 +1,4 @@
-// 音声会話の中継（App Service、ADR 0013）のクライアント。
+// 音声会話の中継（App Service、ADR 0013・0014）のクライアント。
 // WebRTC と WebSocket は使わず、HTTPS の POST と SSE だけでやりとりする。
 // イベントの種類は src/relay/src/lib/session.ts と docs/api.md と一致させる。
 import type { AudioFormat } from '../audio/pcm';
@@ -15,9 +15,8 @@ export interface RelaySession {
 
 export type RelayEvent =
   | { event: 'audio'; data: { delta: string } }
-  | { event: 'transcript'; data: { role: 'user' | 'assistant'; text: string } }
-  | { event: 'speech_started'; data: Record<string, never> }
-  | { event: 'tool_call'; data: { name: string; arguments: Record<string, unknown> } }
+  /** 字幕の断片。発言の区切りはないので、同じ話者の断片をつなげて表示する（ADR 0014）。 */
+  | { event: 'transcript'; data: { role: 'user' | 'assistant'; delta: string } }
   | { event: 'closed'; data: { reason: string } };
 
 const CONNECT_ERROR = '音声会話の中継に接続できませんでした。もう一度お試しください。';

@@ -12,6 +12,8 @@
     - Foundry のキーは中継だけが持つ。
   - 保存: 音声と会話の記録は保存しない。
 
+> 2026-11-23: Foundry 側を GPT-Live（`gpt-live-1`）に置き換えた。音声形式（`pcmu`）・文字起こしのモデル・ツールに関する項目は不要になった。続きは [07 GPT-Live への置き換え](./07-gpt-live-checklist.md) を参照（[ADR 0014](./decisions/0014-voice-conversation-gpt-live.md)）。
+
 ## 手作業
 
 - [x] `voice-stt-foundary` に `gpt-realtime-2.1-mini` がデプロイ済みであることを確認する（2026-11-21。デプロイ名は `gpt-realtime-2.1-mini`）
