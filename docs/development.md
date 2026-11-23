@@ -63,6 +63,16 @@ func start
 
 `func start` は `http://localhost:7071` で待ち受けます。フロントエンドと API を同一ホストで確認したい場合は `swa start` も使えます。
 
+### 利用者の照合（ローカル）
+
+API は Cosmos DB の `users` に登録した利用者だけを通します（[ADR 0015](../plan/decisions/0015-user-allowlist.md)）。Vite の dev server から Functions ホストに直接つなぐと `x-ms-client-principal` が付きません。そのため全 API が 403 になり、画面は操作できない状態になります。画面を操作して確かめるときは、次のようにします。
+
+1. `local.settings.json` の `COSMOS_CONNECTION_STRING` が指す Cosmos DB の `users` に、`{ "id": "<モックログインで入力する UPN の小文字>" }` を登録する。
+2. `func start` と `npm run dev -w src/frontend` を起動したうえで、`swa start http://localhost:5173 --api-devserver-url http://localhost:7071` を実行する。
+3. `http://localhost:4280` を開き、モックログインの画面で、手順 1 の UPN を「Username」に入力してサインインする。
+
+認可を迂回する設定はありません。
+
 ### local.settings.json
 
 `src/api/local.settings.json` を作成し、`Values` に次のキーを設定します。値はこのドキュメントに書きません。このファイルはコミットしません。

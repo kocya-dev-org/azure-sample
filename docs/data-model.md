@@ -77,6 +77,16 @@ Cosmos DB for NoSQL のデータベース `flyingfish`（共有スループッ�
 
 詳細画面では、`items` の各要素に `scoredItems` の最新の `status`・`issue`・根拠を結合して返します。元の提案が削除された項目は、削除済みと表示します。
 
+## users（パーティションキー `/id`）
+
+利用を許可する利用者の一覧です。Azure Portal の Data Explorer で手作業で登録します（[ADR 0015](../plan/decisions/0015-user-allowlist.md)）。画面には表示しません。登録する値は、その利用者がサインインした状態で `/.auth/me` を開き、`clientPrincipal.userDetails` で確かめてください。
+
+| フィールド | 型     | 説明                                                                               |
+| ---------- | ------ | ---------------------------------------------------------------------------------- |
+| `id`       | string | Entra の UPN（`x-ms-client-principal` の `userDetails`）を小文字にした値。必須です |
+
+`id` 以外のフィールド（メモなど）は自由に追加できますが、API は使いません。
+
 ## 削除時の扱い
 
 - **提案を削除する**: `proposals` と `scoredItems` の該当ドキュメントを削除します。作成済みのバックログのスナップショットは残ります。

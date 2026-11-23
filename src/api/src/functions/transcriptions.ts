@@ -6,6 +6,7 @@ import {
   type HttpResponseInit,
   type InvocationContext,
 } from '@azure/functions';
+import { withAuth } from '../lib/auth';
 import { jsonError, logError } from '../lib/http';
 import { getProduct } from '../lib/store';
 import { transcribe } from '../lib/transcription';
@@ -66,5 +67,5 @@ app.http('transcribeProposalAudio', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'products/{productId}/transcriptions',
-  handler: transcribeHandler,
+  handler: withAuth(transcribeHandler),
 });

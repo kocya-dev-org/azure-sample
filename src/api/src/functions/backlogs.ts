@@ -7,6 +7,7 @@ import {
   type InvocationContext,
 } from '@azure/functions';
 import { isGithubEnabled } from '../lib/github';
+import { withAuth } from '../lib/auth';
 import { getPrincipal, jsonError, logError, readJsonObject } from '../lib/http';
 import { compareForBacklog } from '../lib/rice';
 import {
@@ -140,19 +141,19 @@ app.http('listBacklogs', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'products/{productId}/backlogs',
-  handler: listBacklogsHandler,
+  handler: withAuth(listBacklogsHandler),
 });
 
 app.http('createBacklog', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'products/{productId}/backlogs',
-  handler: createBacklogHandler,
+  handler: withAuth(createBacklogHandler),
 });
 
 app.http('getBacklog', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'products/{productId}/backlogs/{id}',
-  handler: getBacklogHandler,
+  handler: withAuth(getBacklogHandler),
 });

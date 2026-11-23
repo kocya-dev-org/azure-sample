@@ -3,6 +3,7 @@ import {
   LayoutDashboardIcon,
   LightbulbIcon,
   ListOrderedIcon,
+  LogOutIcon,
   MenuIcon,
   MonitorIcon,
   MoonIcon,
@@ -52,7 +53,9 @@ function Brand() {
   );
 }
 
-function NavMenu({ onNavigate }: { onNavigate?: () => void }) {
+const MENU_ITEM_CLASS = 'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium';
+
+function NavMenu({ onNavigate, locked }: { onNavigate?: () => void; locked: boolean }) {
   const { path } = useRouter();
   return (
     <nav aria-label="メニュー">
@@ -61,6 +64,24 @@ function NavMenu({ onNavigate }: { onNavigate?: () => void }) {
           const active =
             item.to === '/' ? path === '/' : path === item.to || path.startsWith(`${item.to}/`);
           const Icon = item.icon;
+          if (locked) {
+            // 利用を許可されていない間はリンクにせず、操作できないことを示す
+            return (
+              <li key={item.to}>
+                <span
+                  role="link"
+                  aria-disabled="true"
+                  className={cn(
+                    MENU_ITEM_CLASS,
+                    'cursor-not-allowed text-muted-foreground opacity-50',
+                  )}
+                >
+                  <Icon className="size-4" aria-hidden="true" />
+                  {item.label}
+                </span>
+              </li>
+            );
+          }
           return (
             <li key={item.to}>
               <Link
@@ -68,7 +89,8 @@ function NavMenu({ onNavigate }: { onNavigate?: () => void }) {
                 onClick={onNavigate}
                 aria-current={active ? 'page' : undefined}
                 className={cn(
-                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  MENU_ITEM_CLASS,
+                  'transition-colors',
                   active
                     ? 'bg-accent text-accent-foreground'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground',
@@ -113,8 +135,26 @@ function ThemeMenu() {
   );
 }
 
-function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
+function ProductSelect() {
   const { products, selectedProduct, selectProduct } = useProducts();
+  return (
+    <NativeSelect
+      aria-label="プロダクト"
+      className="w-44 min-w-0 sm:w-56"
+      value={selectedProduct?.id ?? ''}
+      onChange={(event) => selectProduct(event.target.value)}
+    >
+      <option value="">選択してください</option>
+      {products.map((product) => (
+        <option key={product.id} value={product.id}>
+          {product.name}
+        </option>
+      ))}
+    </NativeSelect>
+  );
+}
+
+function Header({ onOpenMenu, locked }: { onOpenMenu: () => void; locked: boolean }) {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:px-6">
       <Button
@@ -133,26 +173,30 @@ function Header({ onOpenMenu }: { onOpenMenu: () => void }) {
         <span className="hidden text-sm text-muted-foreground sm:inline" aria-hidden="true">
           プロダクト
         </span>
-        <NativeSelect
-          aria-label="プロダクト"
-          className="w-44 min-w-0 sm:w-56"
-          value={selectedProduct?.id ?? ''}
-          onChange={(event) => selectProduct(event.target.value)}
-        >
-          <option value="">選択してください</option>
-          {products.map((product) => (
-            <option key={product.id} value={product.id}>
-              {product.name}
-            </option>
-          ))}
-        </NativeSelect>
+        {locked ? (
+          // 許可されていない間は ProductProvider がないため、選択肢のない無効なリストを表示する
+          <NativeSelect aria-label="プロダクト" className="w-44 min-w-0 sm:w-56" disabled value="">
+            <option value="">選択してください</option>
+          </NativeSelect>
+        ) : (
+          <ProductSelect />
+        )}
         <ThemeMenu />
+        {locked && (
+          // 別のアカウントでサインインし直せるよう、サインアウトだけは操作できるようにする
+          <Button variant="ghost" size="icon" asChild>
+            <a href="/.auth/logout" aria-label="サインアウト">
+              <LogOutIcon />
+            </a>
+          </Button>
+        )}
       </div>
     </header>
   );
 }
 
-export function Layout({ children }: { children: ReactNode }) {
+/** locked のときは、メニューとプロダクトの選択を無効にする（利用を許可されていない利用者向け）。 */
+export function Layout({ children, locked = false }: { children: ReactNode; locked?: boolean }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { path } = useRouter();
   // 提案一覧のカード表示は固定幅のカードを並べるので、画面が広いほど並ぶ枚数を増やせるよう幅を制限しない（リスト表示も同じ幅）。
@@ -163,18 +207,18 @@ export function Layout({ children }: { children: ReactNode }) {
         <div className="px-3">
           <Brand />
         </div>
-        <NavMenu />
+        <NavMenu locked={locked} />
       </aside>
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent side="left" className="w-64 gap-6 px-3 py-4" aria-describedby={undefined}>
           <SheetTitle className="px-3">
             <Brand />
           </SheetTitle>
-          <NavMenu onNavigate={() => setMenuOpen(false)} />
+          <NavMenu locked={locked} onNavigate={() => setMenuOpen(false)} />
         </SheetContent>
       </Sheet>
       <div className="flex min-w-0 flex-col">
-        <Header onOpenMenu={() => setMenuOpen(true)} />
+        <Header locked={locked} onOpenMenu={() => setMenuOpen(true)} />
         <main
           className={cn('mx-auto w-full flex-1 px-4 py-6 md:px-8 md:py-8', !wide && 'max-w-6xl')}
         >

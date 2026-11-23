@@ -16,6 +16,7 @@ export const CONTAINER_DEFINITIONS = {
   proposals: { partitionKey: '/productId', defaultTtl: -1 },
   scoredItems: { partitionKey: '/productId' },
   backlogs: { partitionKey: '/productId' },
+  users: { partitionKey: '/id' },
 } as const;
 
 export type ContainerName = keyof typeof CONTAINER_DEFINITIONS;

@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { Toaster } from '@/components/ui/sonner';
 import { EmptyState, LoadingState, PageHeader } from './components/common';
 import { Layout } from './components/Layout';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ProductProvider, useProducts } from './context/ProductContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { BacklogDetailPage } from './pages/BacklogDetail';
@@ -44,15 +45,43 @@ function Routes() {
   );
 }
 
+/** 許可された利用者にだけ画面を開く。それ以外はメニューを無効にして理由を表示する。 */
+function AuthGate() {
+  const { status } = useAuth();
+  if (status === 'authorized') {
+    return (
+      <ProductProvider>
+        <Layout>
+          <Routes />
+        </Layout>
+      </ProductProvider>
+    );
+  }
+  return (
+    <Layout locked>
+      {status === 'loading' ? (
+        <LoadingState rows={4} />
+      ) : (
+        <section>
+          <PageHeader title="利用できません" />
+          <EmptyState>
+            {status === 'unauthorized'
+              ? '利用権限がありません。管理者に利用者の登録を依頼してください。'
+              : '利用権限を確認できませんでした。時間をおいて再読み込みしてください。'}
+          </EmptyState>
+        </section>
+      )}
+    </Layout>
+  );
+}
+
 export default function App() {
   return (
     <ThemeProvider>
       <RouterProvider>
-        <ProductProvider>
-          <Layout>
-            <Routes />
-          </Layout>
-        </ProductProvider>
+        <AuthProvider>
+          <AuthGate />
+        </AuthProvider>
       </RouterProvider>
       <Toaster richColors closeButton position="top-right" />
     </ThemeProvider>

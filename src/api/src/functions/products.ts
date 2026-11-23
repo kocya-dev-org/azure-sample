@@ -6,6 +6,7 @@ import {
   type InvocationContext,
 } from '@azure/functions';
 import { REPOSITORY_PATTERN } from '../lib/github';
+import { withAuth } from '../lib/auth';
 import { jsonError, logError, readJsonObject, readString, type JsonObject } from '../lib/http';
 import { deleteProductCascade, getProduct, listProducts, saveProduct } from '../lib/store';
 import type { Product } from '../lib/types';
@@ -99,26 +100,26 @@ app.http('listProducts', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'products',
-  handler: listProductsHandler,
+  handler: withAuth(listProductsHandler),
 });
 
 app.http('createProduct', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'products',
-  handler: createProductHandler,
+  handler: withAuth(createProductHandler),
 });
 
 app.http('updateProduct', {
   methods: ['PUT'],
   authLevel: 'anonymous',
   route: 'products/{productId}',
-  handler: updateProductHandler,
+  handler: withAuth(updateProductHandler),
 });
 
 app.http('deleteProduct', {
   methods: ['DELETE'],
   authLevel: 'anonymous',
   route: 'products/{productId}',
-  handler: deleteProductHandler,
+  handler: withAuth(deleteProductHandler),
 });

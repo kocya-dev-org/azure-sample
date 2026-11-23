@@ -43,7 +43,11 @@ export function deltaStream(texts: string[]): Response {
   ]);
 }
 
-export function mockFetch(routes: Record<string, RouteHandler | unknown>) {
+/** 利用者の照合（GET /api/me）の既定の応答。指定がなければ、許可された利用者として扱う。 */
+export const AUTHORIZED_ME = { authorized: true, name: 'ユーザー-1' };
+
+export function mockFetch(input: Record<string, RouteHandler | unknown>) {
+  const routes: Record<string, RouteHandler | unknown> = { 'GET /api/me': AUTHORIZED_ME, ...input };
   const fetchMock = vi.fn<(input: string, init?: RequestInit) => Promise<Response>>(
     async (input, init) => {
       const method = init?.method ?? 'GET';

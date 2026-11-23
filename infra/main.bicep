@@ -42,6 +42,7 @@ var cosmosContainers = [
   { name: 'proposals', partitionKey: '/productId', defaultTtl: -1 }
   { name: 'scoredItems', partitionKey: '/productId', defaultTtl: null }
   { name: 'backlogs', partitionKey: '/productId', defaultTtl: null }
+  { name: 'users', partitionKey: '/id', defaultTtl: null }
 ]
 var blobContainerName = 'objects'
 var batchDeploymentContainerName = 'batch-deployments'

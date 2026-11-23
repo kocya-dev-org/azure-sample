@@ -150,7 +150,14 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 
 const enc = encodeURIComponent;
 
+export interface Me {
+  authorized: boolean;
+  name: string;
+}
+
 export const api = {
+  getMe: () => request<Me>('GET', '/me'),
+
   listProducts: () => request<Product[]>('GET', '/products'),
   createProduct: (input: ProductInput) => request<Product>('POST', '/products', input),
   updateProduct: (id: string, input: ProductInput) =>

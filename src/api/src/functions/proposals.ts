@@ -7,6 +7,7 @@ import {
   type HttpResponseInit,
   type InvocationContext,
 } from '@azure/functions';
+import { withAuth } from '../lib/auth';
 import { getPrincipal, jsonError, logError, readJsonObject } from '../lib/http';
 import { parseProposalInput } from '../lib/proposal-input';
 import { scoreProposal } from '../lib/scoring';
@@ -169,33 +170,33 @@ app.http('listProposals', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'products/{productId}/proposals',
-  handler: listProposalsHandler,
+  handler: withAuth(listProposalsHandler),
 });
 
 app.http('createProposal', {
   methods: ['POST'],
   authLevel: 'anonymous',
   route: 'products/{productId}/proposals',
-  handler: createProposalHandler,
+  handler: withAuth(createProposalHandler),
 });
 
 app.http('getProposal', {
   methods: ['GET'],
   authLevel: 'anonymous',
   route: 'products/{productId}/proposals/{id}',
-  handler: getProposalHandler,
+  handler: withAuth(getProposalHandler),
 });
 
 app.http('updateProposal', {
   methods: ['PUT'],
   authLevel: 'anonymous',
   route: 'products/{productId}/proposals/{id}',
-  handler: updateProposalHandler,
+  handler: withAuth(updateProposalHandler),
 });
 
 app.http('deleteProposal', {
   methods: ['DELETE'],
   authLevel: 'anonymous',
   route: 'products/{productId}/proposals/{id}',
-  handler: deleteProposalHandler,
+  handler: withAuth(deleteProposalHandler),
 });
